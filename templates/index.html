@@ -21,6 +21,9 @@
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L11 13M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></symbol>
   </svg>
   <a class="skip-link" href="#question">Skip to question</a>
   <aside class="sidebar" aria-label="Workspace navigation">
@@ -34,6 +37,14 @@
       <a class="nav-item active" href="#question" aria-current="page"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a question</span></a>
       <button class="nav-item" data-dialog="sources-dialog"><svg class="icon"><use href="#i-book"/></svg><span>Source library</span><span class="nav-count">4</span></button>
     </nav>
+
+    <section class="conversation-nav" aria-labelledby="recent-conversations-label">
+      <p class="nav-label" id="recent-conversations-label">RECENT</p>
+      <div id="conversation-list" class="conversation-list" aria-live="polite">
+        <p class="conversation-empty" id="conversation-empty">No saved conversations yet.</p>
+      </div>
+    </section>
+
     <div class="sidebar-bottom">
       <div class="edition-note"><span class="eyebrow">KNOW YOUR SOURCES</span><h2>An archive, with context.</h2><p>Answers draw on the archived Code. Recent amendments are not yet verified.</p><button class="text-button" data-dialog="about-dialog">About this assistant <svg class="icon"><use href="#i-arrow"/></svg></button></div>
       <div class="jurisdiction"><span class="country-mark" aria-hidden="true"></span><span>Made for Bangladesh</span></div>
@@ -41,7 +52,7 @@
   </aside>
 
   <main class="main">
-    <header class="topbar"><div class="breadcrumb">Your workspace <span>/</span> <strong>Ask a question</strong></div><button class="archive-badge" data-dialog="about-dialog"><svg class="icon"><use href="#i-book"/></svg> Archived edition</button></header>
+    <header class="topbar"><div class="breadcrumb">Your workspace <span>/</span> <strong id="conversation-title">Ask a question</strong></div><button class="archive-badge" data-dialog="about-dialog"><svg class="icon"><use href="#i-book"/></svg> Archived edition</button></header>
     <div class="workspace">
       <section class="welcome" id="welcome">
         <div class="topic-label"><span></span>BANGLADESH · CRIMINAL PROCEDURE</div>
@@ -49,7 +60,17 @@
         <p>Ask in your own words. Get a clear explanation,<br class="desktop-break"> with references you can explore.</p>
       </section>
 
-      <section class="result" id="result" aria-label="Question and answer" hidden>
+      <section
+        class="conversation-thread"
+        id="conversation-thread"
+        aria-label="Conversation"
+        aria-live="polite"
+        hidden
+      ></section>
+
+      <!-- Kept temporarily for compatibility with the current app.js.
+           The next frontend step replaces this single-result renderer. -->
+      <section class="result legacy-result" id="result" aria-label="Question and answer" hidden>
         <div class="question-heading"><span class="eyebrow">YOUR QUESTION</span><h2 id="asked-question"></h2></div>
         <div class="answer-panel" aria-busy="false" id="answer-panel">
           <div class="answer-heading"><span class="answer-mark"><svg class="icon"><use href="#i-scales"/></svg></span><strong>CrPC assistant</strong><span class="response-label" id="response-label"></span><button class="icon-button" id="copy-answer" aria-label="Copy answer" title="Copy answer" hidden><svg class="icon"><use href="#i-copy"/></svg></button></div>
@@ -64,9 +85,9 @@
       <form class="composer" id="ask-form">
         <label class="sr-only" for="question">Your question</label>
         <textarea id="question" name="question" placeholder="What would you like to understand?" maxlength="4000" rows="3" required aria-describedby="question-hint"></textarea>
-        <div class="composer-toolbar"><span class="input-hint" id="question-hint"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a complete question</span></span><span class="character-count" id="character-count" hidden></span><button class="submit-button" id="submit" type="submit"><span>Ask question</span><svg class="icon"><use href="#i-arrow"/></svg></button></div>
+        <div class="composer-toolbar"><span class="input-hint" id="question-hint"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a question or continue the conversation</span></span><span class="character-count" id="character-count" hidden></span><button class="submit-button" id="submit" type="submit"><span>Ask question</span><svg class="icon"><use href="#i-arrow"/></svg></button></div>
       </form>
-      <div class="composer-note"><span>Each question is answered independently.</span><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span></div>
+      <div class="composer-note"><span>Follow-up questions can use the recent context in this conversation.</span><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span></div>
 
       <section class="suggestions" id="suggestions" aria-label="Example questions">
         <div class="suggestions-heading"><span>NOT SURE WHERE TO START?</span><span class="fine-line"></span></div>
@@ -89,7 +110,7 @@
     {% endfor %}
     </div><p class="library-note">Answers currently search the statutory text in Parts 2 and 3. Schedules, other Acts and recent amendments are not covered.</p>
   </dialog>
-  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-top"><span class="eyebrow">A LITTLE CONTEXT</span><button class="icon-button close-dialog" aria-label="Close about this assistant"><svg class="icon"><use href="#i-close"/></svg></button></div><h2 id="about-title">Clarity starts with a source.</h2><p class="dialog-description">This assistant helps you explore Bangladesh criminal procedure in plain language.</p><ol class="about-steps"><li><strong>Ask in your own words.</strong><p>Include the situation and document you mean. Each question starts fresh.</p></li><li><strong>Read the explanation.</strong><p>Legal answers use the archived text. If details or evidence are missing, the assistant should ask or say so.</p></li><li><strong>Explore the reference.</strong><p>Expand a source to read the excerpt, or open the original PDF at the cited page.</p></li></ol><div class="about-limit">The archive is not verified current law. Answers can contain mistakes; references help you check them. This is legal information, not legal advice.</div></dialog>
+  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-top"><span class="eyebrow">A LITTLE CONTEXT</span><button class="icon-button close-dialog" aria-label="Close about this assistant"><svg class="icon"><use href="#i-close"/></svg></button></div><h2 id="about-title">Clarity starts with a source.</h2><p class="dialog-description">This assistant helps you explore Bangladesh criminal procedure in plain language.</p><ol class="about-steps"><li><strong>Ask in your own words.</strong><p>You can continue with follow-up questions inside the same saved conversation.</p></li><li><strong>Read the explanation.</strong><p>Legal answers use the archived text. If details or evidence are missing, the assistant should ask or say so.</p></li><li><strong>Explore the reference.</strong><p>Expand a source to read the excerpt, or open the original PDF at the cited page.</p></li></ol><div class="about-limit">The archive is not verified current law. Answers can contain mistakes; references help you check them. This is legal information, not legal advice.</div></dialog>
   <div class="sr-only" id="announcement" aria-live="polite"></div>
   <noscript><p class="noscript">Enable JavaScript to use this workspace, or <a href="{{ url_for('source_pdf', filename='crpc-1898-part-2.pdf') }}">open the source PDF</a>.</p></noscript>
 </body>

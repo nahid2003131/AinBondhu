@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 
+import chat_store
 import httpx
 import rag
 from dotenv import load_dotenv
@@ -71,7 +72,9 @@ For an unclear request, ask a short clarification instead of guessing its meanin
 App facts: the backend is Flask; generation is hosted by Groq using the configured
 model supplied below. Legal answers search archived Bangladesh CrPC text and show
 section/page references and excerpts. Current amendments are not verified. The app
-has no browser search, file-upload interface or memory of earlier requests.
+has no browser search or file-upload interface. When conversation history is
+supplied, use it only to understand follow-up context; do not treat prior
+assistant messages as legal evidence.
 When asked about capabilities, lead with the app's Bangladesh CrPC purpose,
 references and archive limitation; you may also mention ordinary conversation.
 Only identify the model using the configured value below; never claim to know
@@ -86,14 +89,19 @@ ROUTING_SCHEMA = {
 }
 
 
-def generate_answer(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata=None, evidence=None):
+def generate_answer(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata=None, evidence=None, history=None):
     schema = ANSWER_SCHEMA
     if evidence is not None:
         schema = {**ANSWER_SCHEMA, "properties": {**ANSWER_SCHEMA["properties"], "references": rag.REFERENCE_SCHEMA},
                   "required": ["status", "answer", "references"]}
         system_instruction = rag.INSTRUCTION
-        question = json.dumps({"question": question, "source_version": rag.embed.SOURCE_VERSION,
-                               "archive_current_law_verified": False, "passages": evidence})
+        question = json.dumps({
+            "question": question,
+            "conversation_history": rag.conversation_context(history),
+            "source_version": rag.embed.SOURCE_VERSION,
+            "archive_current_law_verified": False,
+            "passages": evidence,
+        })
     result = model_result(question, system_instruction, schema, metadata)
     if (
         not isinstance(result, dict)
@@ -117,9 +125,15 @@ def generate_answer(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata
     }
 
 
-def route_question(question, metadata=None):
+def route_question(question, metadata=None, history=None):
     instruction = ROUTING_INSTRUCTION + "\nConfigured model: " + json.dumps(app.config["GROQ_MODEL"])
-    result = model_result(question, instruction, ROUTING_SCHEMA, metadata)
+    router_input = question
+    if history:
+        router_input = json.dumps({
+            "current_question": question,
+            "conversation_history": rag.conversation_context(history),
+        })
+    result = model_result(router_input, instruction, ROUTING_SCHEMA, metadata)
     if (not isinstance(result, dict) or set(result) != {"route", "answer"}
             or result.get("route") not in ("conversation", "legal", "clarify")
             or not isinstance(result.get("answer"), str)
@@ -250,6 +264,117 @@ def source_pdf(filename):
     return send_from_directory(Path(__file__).with_name("documents"), filename)
 
 
+def client_id_from_request():
+    client_id = request.headers.get("X-Client-ID", "").strip()
+    if not client_id:
+        raise ValueError("X-Client-ID header is required")
+    return client_id
+
+
+@app.post("/conversations")
+def create_conversation():
+    if not request.is_json:
+        return api_error(
+            "unsupported_media_type",
+            "Send the request as application/json.",
+            415,
+        )
+
+    try:
+        payload = request.get_json()
+    except BadRequest:
+        return api_error(
+            "invalid_json",
+            "The request body must contain valid JSON.",
+            400,
+        )
+
+    if not isinstance(payload, dict):
+        return api_error(
+            "invalid_request",
+            "The JSON body must be an object.",
+            400,
+        )
+
+    try:
+        client_id = client_id_from_request()
+
+        conversation = chat_store.create_conversation(
+            app.config["DATABASE_URL"],
+            client_id,
+            payload.get("title", "New conversation"),
+        )
+
+        return jsonify(conversation), 201
+
+    except ValueError as error:
+        return api_error("invalid_client", str(error), 400)
+
+    except chat_store.ChatStoreError:
+        app.logger.exception("Conversation creation failed")
+        return api_error(
+            "conversation_storage_unavailable",
+            "Conversation storage is temporarily unavailable.",
+            503,
+        )
+
+
+@app.get("/conversations")
+def conversations():
+    try:
+        client_id = client_id_from_request()
+
+        items = chat_store.list_conversations(
+            app.config["DATABASE_URL"],
+            client_id,
+        )
+
+        return jsonify({"conversations": items})
+
+    except ValueError as error:
+        return api_error("invalid_client", str(error), 400)
+
+    except chat_store.ChatStoreError:
+        app.logger.exception("Conversation listing failed")
+        return api_error(
+            "conversation_storage_unavailable",
+            "Conversation storage is temporarily unavailable.",
+            503,
+        )
+
+
+@app.get("/conversations/<conversation_id>")
+def conversation(conversation_id):
+    try:
+        client_id = client_id_from_request()
+
+        item = chat_store.get_conversation(
+            app.config["DATABASE_URL"],
+            client_id,
+            conversation_id,
+        )
+
+        if item is None:
+            return api_error(
+                "conversation_not_found",
+                "Conversation not found.",
+                404,
+            )
+
+        return jsonify(item)
+
+    except ValueError as error:
+        return api_error("invalid_conversation", str(error), 400)
+
+    except chat_store.ChatStoreError:
+        app.logger.exception("Conversation loading failed")
+        return api_error(
+            "conversation_storage_unavailable",
+            "Conversation storage is temporarily unavailable.",
+            503,
+        )
+
+
 @app.post("/ask")
 def ask():
     if not request.is_json:
@@ -261,6 +386,7 @@ def ask():
 
     if not isinstance(payload, dict):
         return api_error("invalid_request", "The JSON body must be an object containing question.", 400)
+
     question = payload.get("question")
     if not isinstance(question, str) or not question.strip():
         return api_error("invalid_question", "question must be a nonempty string.", 400)
@@ -268,15 +394,126 @@ def ask():
     if len(question) > MAX_QUESTION_LENGTH:
         return api_error("question_too_long", f"question must be at most {MAX_QUESTION_LENGTH} characters.", 400)
 
+    conversation_id = payload.get("conversation_id")
+    client_id = None
+    history = []
+
+    if conversation_id is not None:
+        if not isinstance(conversation_id, str) or not conversation_id.strip():
+            return api_error(
+                "invalid_conversation",
+                "conversation_id must be a nonempty UUID string.",
+                400,
+            )
+
+        try:
+            client_id = client_id_from_request()
+            conversation = chat_store.get_owned_conversation(
+                app.config["DATABASE_URL"],
+                client_id,
+                conversation_id,
+            )
+        except ValueError as error:
+            return api_error("invalid_conversation", str(error), 400)
+        except chat_store.ChatStoreError:
+            app.logger.exception("Conversation ownership check failed")
+            return api_error(
+                "conversation_storage_unavailable",
+                "Conversation storage is temporarily unavailable.",
+                503,
+            )
+
+        if conversation is None:
+            return api_error(
+                "conversation_not_found",
+                "Conversation not found.",
+                404,
+            )
+
+        try:
+            history = chat_store.get_recent_messages(
+                app.config["DATABASE_URL"],
+                client_id,
+                conversation_id,
+                limit=8,
+            )
+        except ValueError as error:
+            return api_error("invalid_conversation", str(error), 400)
+        except chat_store.ChatStoreError:
+            app.logger.exception("Conversation history loading failed")
+            return api_error(
+                "conversation_storage_unavailable",
+                "Conversation storage is temporarily unavailable.",
+                503,
+            )
+
+        if history is None:
+            return api_error(
+                "conversation_not_found",
+                "Conversation not found.",
+                404,
+            )
+
     metadata = {}
-    body, status = answer_question(question, metadata=metadata, grounded=True)
+    body, status = answer_question(
+        question,
+        metadata=metadata,
+        grounded=True,
+        history=history,
+    )
+
+    # Persist only completed assistant responses. Provider/retrieval errors remain
+    # transient so retries do not create half-finished conversation turns.
+    if conversation_id is not None and status == 200 and body.get("status") != "error":
+        try:
+            saved_user = chat_store.add_message(
+                app.config["DATABASE_URL"],
+                client_id,
+                conversation_id,
+                "user",
+                question,
+            )
+            if saved_user is None:
+                return api_error(
+                    "conversation_not_found",
+                    "Conversation not found.",
+                    404,
+                )
+
+            saved_assistant = chat_store.add_message(
+                app.config["DATABASE_URL"],
+                client_id,
+                conversation_id,
+                "assistant",
+                body["answer"],
+                status=body["status"],
+                citations=body.get("citations", []),
+            )
+            if saved_assistant is None:
+                return api_error(
+                    "conversation_not_found",
+                    "Conversation not found.",
+                    404,
+                )
+
+        except (ValueError, TypeError) as error:
+            app.logger.exception("Conversation message validation failed")
+            return api_error("invalid_conversation_message", str(error), 400)
+        except chat_store.ChatStoreError:
+            app.logger.exception("Conversation message persistence failed")
+            return api_error(
+                "conversation_storage_unavailable",
+                "The answer was generated, but the conversation could not be saved.",
+                503,
+            )
+
     response = jsonify(body)
     if "retry_after_seconds" in metadata:
         response.headers["Retry-After"] = str(metadata["retry_after_seconds"])
     return response, status
 
 
-def answer_question(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata=None, grounded=False):
+def answer_question(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata=None, grounded=False, history=None):
     """API uses grounded=True; the historical evaluation runner retains its baseline."""
     def failure(code, message, status):
         return error_body(code, message), status
@@ -286,13 +523,13 @@ def answer_question(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata
     try:
         evidence = None
         if grounded:
-            routed = route_question(question, metadata=metadata)
+            routed = route_question(question, metadata=metadata, history=history)
             if routed["route"] != "legal":
                 clarification = routed["route"] == "clarify"
                 return {"status": "clarify" if clarification else "answer", "answer": routed["answer"].strip(),
                         "citations": [], "source_version": None, "error": None,
                         "disclaimer": DISCLAIMER if clarification else None}, 200
-            evidence = rag.retrieve(question, app.config["DATABASE_URL"], app.config["GEMINI_API_KEY"])
+            evidence = rag.retrieve(question, app.config["DATABASE_URL"], app.config["GEMINI_API_KEY"], history=history)
             if metadata is not None:
                 metadata["retrieved_evidence"] = evidence
                 metadata["retrieved_evidence_ids"] = [p["id"] for p in evidence]
@@ -300,7 +537,13 @@ def answer_question(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata
             if not evidence:
                 return {"status": "insufficient_evidence", "answer": "The available archive does not provide enough information to answer this question.",
                         "citations": [], "source_version": rag.embed.SOURCE_VERSION, "error": None, "disclaimer": DISCLAIMER}, 200
-        return generate_answer(question, system_instruction=system_instruction, metadata=metadata, evidence=evidence), 200
+        return generate_answer(
+            question,
+            system_instruction=system_instruction,
+            metadata=metadata,
+            evidence=evidence,
+            history=history,
+        ), 200
     except rag.RetrievalError as error:
         if metadata is not None:
             metadata["retrieval_error"] = str(error)

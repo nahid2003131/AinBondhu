@@ -427,7 +427,7 @@ button svg,a svg {
 
 .composer textarea {
   border:none;
-  resize:vertical;
+  resize:none;
   outline:none;
   background:transparent;
   color:var(--ink);
@@ -435,9 +435,11 @@ button svg,a svg {
   display:block;
   min-height:111px;
   max-height:300px;
+  overflow-y:auto;
   line-height:1.65;
   padding:22px 23px 12px;
   font-size:16px;
+  transition:height .12s ease;
 }
 
 .composer textarea::placeholder {
@@ -668,10 +670,37 @@ button svg,a svg {
 .answer-text {
   font-size:16px;
   line-height:1.95;
-  white-space:pre-wrap;
   overflow-wrap:anywhere;
   margin:0;
   outline:none;
+}
+
+.answer-text p {
+  margin:0 0 16px;
+}
+
+.answer-text p:last-child {
+  margin-bottom:0;
+}
+
+.answer-text ul,
+.answer-text ol {
+  margin:0 0 16px;
+  padding-left:22px;
+}
+
+.answer-text ul:last-child,
+.answer-text ol:last-child {
+  margin-bottom:0;
+}
+
+.answer-text li {
+  margin-bottom:8px;
+  line-height:1.8;
+}
+
+.answer-text li:last-child {
+  margin-bottom:0;
 }
 
 .inline-citation {
@@ -807,6 +836,15 @@ button svg,a svg {
   padding:12px 0 20px;
 }
 
+.stop-button {
+  margin-left:auto;
+  color:#8b988f;
+}
+
+.stop-button:hover {
+  color:#a1503a;
+}
+
 .loading-dots {
   display:flex;
   gap:4px;
@@ -885,11 +923,38 @@ dialog {
   background:white;
   color:var(--ink);
   box-shadow:0 24px 100px #152e2330;
+  opacity:0;
+  transform:translateY(10px) scale(.98);
+  transition:opacity .2s ease,transform .2s ease,overlay .2s ease allow-discrete,display .2s ease allow-discrete;
+}
+
+dialog[open] {
+  opacity:1;
+  transform:translateY(0) scale(1);
+}
+
+@starting-style {
+  dialog[open] {
+    opacity:0;
+    transform:translateY(10px) scale(.98);
+  }
 }
 
 dialog::backdrop {
   background:#172e2859;
   backdrop-filter:blur(3px);
+  opacity:0;
+  transition:opacity .2s ease,overlay .2s ease allow-discrete,display .2s ease allow-discrete;
+}
+
+dialog[open]::backdrop {
+  opacity:1;
+}
+
+@starting-style {
+  dialog[open]::backdrop {
+    opacity:0;
+  }
 }
 
 .dialog-top {
@@ -1265,5 +1330,287 @@ dialog h2 {
     animation:none!important;
     transition:none!important;
     scroll-behavior:auto!important;
+  }
+}
+
+
+/* Persistent conversation threads */
+.conversation-nav {
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  margin-top:4px;
+  padding-bottom:12px;
+}
+
+.conversation-nav .nav-label {
+  margin-top:24px;
+}
+
+.conversation-list {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.conversation-empty {
+  margin:0 12px;
+  color:#94a097;
+  font-size:12px;
+  line-height:1.6;
+}
+
+.conversation-item {
+  display:flex;
+  align-items:center;
+  width:100%;
+  border-radius:7px;
+  color:#66786f;
+  font-size:13px;
+  position:relative;
+}
+
+.conversation-item:hover,.conversation-item:focus-within {
+  background:#edf2ef;
+  color:#40574c;
+}
+
+.conversation-item.active {
+  background:#e7efeb;
+  color:var(--green);
+}
+
+.conversation-item .icon {
+  width:15px;
+  height:15px;
+}
+
+.conversation-item-main {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex:1;
+  min-width:0;
+  padding:10px 2px 10px 11px;
+  text-align:left;
+  color:inherit;
+  border-radius:7px;
+}
+
+.conversation-item-title {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.conversation-item-actions {
+  display:flex;
+  align-items:center;
+  gap:2px;
+  padding-right:6px;
+  opacity:0;
+  pointer-events:none;
+  flex-shrink:0;
+  transition:opacity .15s ease;
+}
+
+.conversation-item:hover .conversation-item-actions,
+.conversation-item:focus-within .conversation-item-actions {
+  opacity:1;
+  pointer-events:auto;
+}
+
+@media (hover:none) {
+  .conversation-item-actions {
+    opacity:1;
+    pointer-events:auto;
+  }
+}
+
+.conversation-action {
+  width:26px;
+  height:26px;
+  display:inline-grid;
+  place-items:center;
+  border-radius:5px;
+  color:#7c8b83;
+}
+
+.conversation-action:hover {
+  background:#dfe9e3;
+  color:#375247;
+}
+
+.conversation-action-delete.confirming {
+  background:#f3d9d2;
+  color:#a1503a;
+}
+
+.conversation-action .icon {
+  width:13px;
+  height:13px;
+}
+
+.conversation-rename-form {
+  display:flex;
+  align-items:center;
+  gap:3px;
+  width:100%;
+  padding:5px 6px 5px 11px;
+  animation:fade-in .15s ease both;
+}
+
+@keyframes fade-in {
+  from { opacity:0; }
+  to { opacity:1; }
+}
+
+.conversation-rename-input {
+  flex:1;
+  min-width:0;
+  border:1px solid #b7cdc0;
+  border-radius:5px;
+  padding:6px 8px;
+  font-size:13px;
+  font-family:inherit;
+  color:var(--ink);
+  background:white;
+}
+
+.conversation-rename-input:focus {
+  outline:none;
+  border-color:var(--green);
+  box-shadow:0 0 0 3px #dfece5;
+}
+
+.legacy-result {
+  display:none!important;
+}
+
+.conversation-thread {
+  display:flex;
+  flex-direction:column;
+  width:100%;
+}
+
+.thread-message {
+  position:relative;
+  animation:message-in .32s ease both;
+}
+
+@keyframes message-in {
+  from {
+    opacity:0;
+    transform:translateY(8px);
+  }
+  to {
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+
+.thread-user {
+  align-self:flex-end;
+  width:min(82%,700px);
+  margin:0 0 30px;
+  padding:15px 18px;
+  border:1px solid #e0e8e3;
+  border-radius:12px 12px 3px 12px;
+  background:#f6f9f7;
+}
+
+.thread-user-label {
+  margin-bottom:7px;
+  color:#819087;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.thread-user-text {
+  margin:0;
+  color:#32473f;
+  font-size:15px;
+  line-height:1.7;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+
+.thread-assistant {
+  width:100%;
+  margin:0 0 34px;
+  padding:0 0 32px;
+  border-bottom:1px solid var(--line);
+}
+
+.thread-assistant:last-child {
+  margin-bottom:0;
+}
+
+.thread-loading {
+  min-height:100px;
+  transition:opacity .16s ease,transform .16s ease;
+}
+
+.thread-loading-exit {
+  opacity:0;
+  transform:translateY(-4px);
+}
+
+.thread-empty {
+  color:var(--muted);
+  font-size:14px;
+  padding:20px 0;
+}
+
+.has-answer .conversation-thread {
+  margin-bottom:8px;
+}
+
+.has-answer .composer {
+  margin-top:24px;
+}
+
+.thread-assistant .answer-heading {
+  margin-bottom:18px;
+}
+
+.thread-assistant .answer-text {
+  max-width:100%;
+}
+
+.thread-assistant .citations {
+  margin-top:24px;
+}
+
+.thread-assistant .request-error {
+  margin-top:4px;
+}
+
+.sidebar-bottom {
+  flex-shrink:0;
+}
+
+@media(max-width:1080px) {
+  .conversation-item {
+    padding-inline:9px;
+    font-size:12px;
+  }
+}
+
+@media(max-width:760px) {
+  .conversation-nav {
+    display:none;
+  }
+
+  .thread-user {
+    width:92%;
+    margin-bottom:24px;
+  }
+
+  .thread-assistant {
+    margin-bottom:28px;
+    padding-bottom:27px;
   }
 }
