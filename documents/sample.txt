@@ -1,0 +1,224 @@
+STEP 01: CLEANED ENGLISH SAMPLE
+Five source pages; automatic checks passed. No routine manual step required.
+Section status describes completeness within this sample, not legal currency.
+Scope: archived English PDFs; current amendment coverage remains unverified.
+Layout rules apply only to these five pages. Original PDF wording is preserved;
+font codes, wrapping, column order and footnote references are normalized.
+PARTIAL fragments and the unparsed schedule are excluded from retrieval examples.
+Footnote IDs use [fn:PDF-page:marker]; their text is stored separately below.
+SOURCE: crpc-1898-part-2.pdf
+SHA-256: 691ae36aa388b46396c7c51e344beb2b162c31d9c36ededa8c34c70467bc8ff0
+SOURCE: crpc-1898-part-4.pdf
+SHA-256: 71902dd0f7746298e3c950a2fb407d675f4a1adbf84ecc8bc8b541692972b627
+
+========================================================================
+
+CONTEXT: title, preamble and hierarchy
+SOURCE: crpc-1898-part-2.pdf | PDF page 1 | printed page 39
+THE CODE OF CRIMINAL PROCEDURE, 1898 ACT NO. V OF 1898 [22nd March, 1898]
+
+An Act to consolidate and amend the law relating to the Criminal Procedure.[fn:1:*]
+
+WHEREAS it is expedient to consolidate and amend the law relating to Criminal Procedure; It is hereby enacted as follows:
+
+PART I PRELIMINARY CHAPTER I
+
+========================================================================
+
+SECTION 1
+STATUS: COMPLETE IN SAMPLE
+SOURCE: crpc-1898-part-2.pdf | PDF 1 / printed 39
+HEADING: Short title Commencement  Extent
+
+1. (1) This Act may be called the Code of Criminal Procedure, 1898; and it shall come into force on the first day of July, 1898.
+
+(2) It extends to the whole of Bangladesh; but, in the absence of any specific provision to the contrary, nothing herein contained shall affect any special [fn:1:1][* * *] law now in force, or any special jurisdiction or power conferred, or any special form of procedure prescribed, by any other law for the time being in force.
+
+========================================================================
+
+SECTION 2
+STATUS: COMPLETE IN SAMPLE
+SOURCE: crpc-1898-part-2.pdf | PDF 1 / printed 39
+
+2. [Repealed by the Repealing and Amending Act, 1914 (Act No. X of 1914).]
+
+========================================================================
+
+SECTION 3
+STATUS: PARTIAL - excluded from retrieval examples
+SOURCE: crpc-1898-part-2.pdf | PDF 1 / printed 39
+
+3. (1) [Omitted by the Bangladesh Laws (Revision and Declaration) Act, 1973 (Act No. VIII of 1973), section 3 and 2nd Schedule.]
+
+========================================================================
+
+SECTION 32
+STATUS: PARTIAL - excluded from retrieval examples
+SOURCE: crpc-1898-part-2.pdf | PDF 21 / printed 59
+HEADING: Sentences which  Magistrates may pass
+
+32. (1) The Courts of Magistrates may pass the following sentences namely:-
+
+(a) Courts [fn:21:1][of Metropolitsan Magistrates and] of Magistrates of the first class: Imprisonment for a term not exceeding [fn:21:2][five years], including such solitary confinement as is authorized by law; Fine not exceeding [fn:21:3][ten thousand taka]; Whipping.
+
+(b) Courts of Magistrates of the second class : Imprisonment for a term not exceeding [fn:21:4][three years], including such solitary confinement as is authorized by law; Fine not exceeding [fn:21:5][five thousand taka];
+
+(c) Courts of Magistrates of the third class: Imprisonment for a term not exceeding [fn:21:6][two years]; Fine not exceeding [fn:21:7][two thousand taka].
+
+========================================================================
+
+UNASSIGNED CONTINUATION
+STATUS: PARTIAL - excluded from retrieval examples
+SOURCE: crpc-1898-part-2.pdf | PDF 98 / printed 136
+
+or trial. Neither the accused nor his agents shall be entitled to call for such diaries, not shall he or they be entitled to see them merely because they are referred to by the Court; but, if they are used by the police-officer who made them, to refresh his memory or if the Court uses them for the purpose of contradicting such police-officer, the provisions of the Evidence Act, 1872, section 161 or section 145, as the case may be, shall apply.
+
+========================================================================
+
+SECTION 173
+STATUS: COMPLETE IN SAMPLE
+SOURCE: crpc-1898-part-2.pdf | PDF 98 / printed 136; PDF 99 / printed 137
+HEADING: Report of police-officer
+
+173. (1) Every investigation under this Chapter shall be completed without unnecessary delay, and, as soon as it is completed, the officer in charge of the police-station shall-
+
+(a) forward to a Magistrate empowered to take cognizance of the offence on a police-report a report, in the form prescribed by the Government, setting forth the names of the parties, the nature of the information and the names of the persons who appear to be acquainted with the circumstances of the case, and stating whether the accused (if arrested) has been forwarded in custody or has been released on his bond, and, if so, whether with or without sureties, and
+
+(b) communicate, in such manner as may be prescribed by the Government, the action taken by him to the person, if any, by whom the information relating to the commission of the offence was first given.
+
+(2) Where a superior officer of police has been appointed under section 158, the report shall in any cases in which the Government by general or special order so directs, be submitted through that officer, and he may, pending the orders of the Magistrate, direct the officer-in-charge of the police-station to make further investigation.
+
+(3) Whenever it appears from a report forwarded under this section that the accused has been released on his bond, the Magistrate shall make such order for the discharge of such bond or otherwise as he thinks fit.
+
+[fn:98:1][(3A) When such report is in respect of a case to which section 170 applies, the police-officer shall forward to the Magistrate along with the report-
+
+(a) all documents or relevant extracts thereof on which the prosecution proposes to rely other than those already sent to the Magistrate during investigation;
+
+(b) the statements recorded under sub-section (3) of section 161 of all the persons whom the prosecution proposes to examine as its witnesses.
+
+(3B) Nothing in this section shall be deemed to preclude further investigation in respect of an offence after a report under sub-section (1) has been forwarded to the Magistrate and, whereupon such investigation, the officer in charge of the police-station obtains further evidence, oral or documentary, he shall forward to the Magistrate a further report or reports regarding such evidence in the form prescribed; and the provisions of sub-section (1) to (3A) shall, as far as may be, apply in relation to such report or reports as they apply in relation to a report forwarded under sub-section (1).]
+
+(4) a copy of any report forwarded under this section shall on application, be furnished to the accused before the commencement of the inquiry or trial:
+
+Provided that the same shall be paid for unless the Magistrate for some special reason thinks fit to furnish it free of cost.
+
+========================================================================
+
+SECTION 174
+STATUS: PARTIAL - excluded from retrieval examples
+SOURCE: crpc-1898-part-2.pdf | PDF 99 / printed 137
+HEADING: Police to inquire and report on suicide, etc.
+
+174. (1) The officer in charge of a police-station or some other police-officer specially empowered by the Government in that behalf, on receiving information that a person-
+
+(a) has committed suicide, or
+
+(b) has been killed by another, or by an animal, or by machinery or by an accident, or
+
+(c) has died under circumstances raising a reasonable suspicion that some other person has committed an offence,
+
+shall immediately give intimation thereof to the [fn:99:1][nearest Executive Magistrate] empowered to hold inquests, and, unless
+
+========================================================================
+
+FOOTNOTES
+SOURCE: crpc-1898-part-2.pdf | PDF 1 / printed 39
+
+[fn:1:*] Throughout this Code, the words "Bangladesh", "Government", "Taka" , "Penal Code" and "High Court Division" were substituted for the words "Pakistan" or "Each Province", "Central Government" or "Provincial Government" or "Central Government or a Provincial Government", "rupees", "Pakistan Penal Code" and "High Court" or "a High Court" or "any High Court" or "every High Court" or "each High Court" or "High Courts" respectively by section 3 and 2nd Schedule of the Bangladesh Laws (Revision and Declaration) Act, 1973 (Act No. VIII of 1973).
+
+[fn:1:1] The words "or local" were omitted by section 3 and 2nd Schedule of the Bangladesh Laws (Revision and Declaration) Act, 1973 (Act No. VIII of 1973).
+
+========================================================================
+
+FOOTNOTES
+SOURCE: crpc-1898-part-2.pdf | PDF 21 / printed 59
+
+[fn:21:1] The words "of Metropolitan Magistrates and" were inserted by section 2 and Schedule of the Code of Criminal Procedure (Amendment) Ordinance, 1976 (Ordinance No. LXXXVI of 1976).
+
+[fn:21:2] The words "five years" were substituted for the words "three years" by section 6 of the Code of Criminal Procedure (Second Amendment) Ordinance, 1982 (Ordinance No. XXIV of 1982).
+
+[fn:21:3] The words "ten thousand taka" were substituted for the words "five thousand taka" by section 6 of the Code of Criminal Procedure (Second Amendment) Ordinance, 1982 (Ordinance No. XXIV of 1982).
+
+[fn:21:4] The words "three years" were substituted for the words "two years" by section 6 of the Code of Criminal Procedure (Second Amendment) Ordinance, 1982 (Ordinance No. XXIV of 1982).
+
+[fn:21:5] The words "five thousand taka" were substituted for the words "two thousand taka" by section 6 of the Code of Criminal Procedure (Second Amendment) Ordinance, 1982 (Ordinance No. XXIV of 1982).
+
+[fn:21:6] The words "two years" were substituted for the words "one year" by section 6 of the Code of Criminal Procedure (Second Amendment) Ordinance, 1982 (Ordinance No. XXIV of 1982).
+
+[fn:21:7] The words "two thousand taka" were substituted for the words "one thousand taka" by section 6 of the Code of Criminal Procedure (Second Amendment) Ordinance, 1982 (Ordinance No. XXIV of 1982).
+
+========================================================================
+
+FOOTNOTES
+SOURCE: crpc-1898-part-2.pdf | PDF 98 / printed 136
+
+[fn:98:1] Sub-sections (3A) and (3B) were inserted by section 2 and Schedule of the Law Reforms Ordinance, 1978 (Ordinance No. XLIX of 1978).
+
+========================================================================
+
+FOOTNOTES
+SOURCE: crpc-1898-part-2.pdf | PDF 99 / printed 137
+
+[fn:99:1] The words “nearest Executive Magistrate” were substituted for the words “nearest Magistrate” by section 60(a) of the Code of Criminal Procedure (Amendment) Act, 2009 (Act No. XXXII of 2009) (with effect from 1st November, 2007).
+
+========================================================================
+
+SCHEDULE II - TABLE SAMPLE
+STATUS: UNPARSED TABLE - excluded from retrieval examples
+SOURCE: crpc-1898-part-4.pdf | PDF 1 / printed 282
+NEXT: parse eight columns and resolve 'Ditto'; numbers refer to Penal Code sections.
+Text below retains the table's spatial layout; it is not a prose section.
+
+282                                       Criminal Procedure                                [1898: Act V
+
+                                              SCHEDULE II
+
+                            TABULAR STATEMENT OF OFFENCES
+
+EXPLANATORY NOTE.-The entries in the second and seventh columns of this schedule, headed
+respectively "Offence" and "Punishment under the Penal Code", are not intended as definitions of
+the offences and punishments described in the several corresponding sections of the Penal Code, or
+even as abstracts of those sections, but merely as references to the subject of the section, the
+number of which is given in the first column.
+
+                                 CHAPTER V.- ABETMENT
+
+    1           2                3               4            5              6             7           8
+ Section     Offence.         Whether      Whether a      Whether        Whether      Punishment      By
+                             the police    warrant or    bailable or   compoundable    under the    what
+                             may arrest          a          not.          or not.     Penal Code    Court
+                              without       summons                                                triable.
+                             warrant or        shall
+                                not.        ordinarily
+                                             issue in
+                                             the first
+                                            instance.
+   109     Abetment of       May           According     According     According as   The same     The
+           any offence,      arrest        as a          as the        the offence    punishment   Court
+           if the act        without       warrant or    offence       abetted is     as for the   by
+           abetted is        warrant if    summons       abetted is    compoundable   offence      which
+           committed in      arrest for    may issue     bailable or   or not.        abetted.     the
+           consequence,      the           for the       not.                                      offence
+           and where no      offence       offence                                                 abetted
+           express           abetted       abetted.                                                is
+           provision is      may be                                                                triable.
+           made for its      made
+           punishment.       without
+                             warrant,
+                             but not
+                             otherwise.
+
+  110.     Abetment of       May           According     According     According as   The same     Ditto.
+           any offence,      arrest        as a          as the        the offence    punishment
+           if the person     without       warrant or    offence       abetted is     as for the
+           abetted does      warrant if    summons       abetted is    compoundable   offence
+           the act with a    arrest for    may issue     bailable or   or not.        abetted.
+           different         the           for the       not.
+           intention         offence       offence
+           from that of      abetted       abetted.
+           the abettor.      may be
+                             made
+                             without
+                             warrant
+                             but not
+                             otherwise.

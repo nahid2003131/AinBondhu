@@ -1,0 +1,158 @@
+BD LAW ASSISTANT - DEVELOPMENT TRACKER
+Updated: 2026-09-17
+
+CURRENT STATE
+Backend prototype works locally. Railway stores the text and embeddings.
+Latest run: 20/20 responses, zero request errors; answer-quality issues remain.
+Stack: Flask | Groq GPT-OSS 120B | Gemini embedding-2 | PostgreSQL + pgvector.
+
+1. SOURCE PREPARATION - COMPLETE FOR INITIAL ARCHIVE
+Purpose: obtain readable legal text with traceable section and page references.
+Sources: documents/crpc-1898-part-1.pdf through crpc-1898-part-4.pdf.
+Work: checked the archive and cleaned a five-page sample from Parts 2 and 4;
+      separated headings, body text and footnotes; flagged incomplete material.
+Deliverables: extract_sample.py, documents/sample.txt, documents/SOURCES.md.
+Verified: sample text preservation, page labels, section boundaries, 11 footnote
+          links and unchanged source hashes; sample pages compared visually.
+Limit: sample checks alone do not certify full extraction or current law.
+
+2. EVALUATION QUESTIONS - VERSION 0.3 READY AND RUN
+Sources: cited original PDF pages; gold references stay outside model prompts.
+Work: created 20 ordinary-language questions with reference answers, required
+      points and expected behavior. No section numbers appear in questions.
+Revision: clarified six prompts, replaced obsolete partial-sample Q20 with a
+          notification question, and corrected Q08's corpus-coverage explanation.
+Deliverable: evaluation.json (current v0.3 questions and references).
+Verified: unique questions, source references and version hashes. New Q20 checked
+          against Part 2, PDF page 99 / printed page 137.
+Scope: 14 answer, 2 clarification and 4 insufficient-evidence cases; a narrow
+       development set, not a held-out benchmark. Score meaning, not wording.
+
+3. FLASK API AND BASELINE - COMPLETE
+Purpose: establish a working API and an evidence-free comparison.
+Work: added GET /health and POST /ask, input checks, model integration and errors;
+      moved answer generation to Groq and ran a true LLM-only baseline.
+Deliverables: app.py, requirements.txt, evaluate.py.
+Retention: the earlier baseline report was removed during repository cleanup.
+Verified: local HTTP and provider checks; baseline recorded 20 first attempts.
+Result: 20/20 responses; complete answers 0/13; required points 9/40.
+Correction: earlier Gemini/Groq source-only prompts received no passages; those
+            runs are missing-evidence controls, not general-knowledge baselines.
+Decision: add retrieval and assess answer completeness plus source support.
+
+4. FULL INGESTION AND EMBEDDINGS - COMPLETE FOR CRPC BODY
+Sources: all four CrPC PDFs validated (441 pages); statutory body from Parts 2-3.
+Work: corrected section continuations, boundaries and table associations; stored
+      source metadata and 515 section/range records from 243 body pages.
+      Created 768-dimensional Gemini embeddings alongside section text.
+Deliverables: ingest.py, embed.py; Railway source_documents and legal_sections.
+Verified: source hashes, text conservation and database readback; all 515 vectors
+          matched content/profile checks. Unchanged embeddings survive reruns.
+Correction: layout audit changed the initial 513 records to 515; restored 442A
+            continuation, separated 126A and retained omitted range 206-220.
+Limits: Part 1 index and Part 4 schedules/forms excluded from retrieval. Page
+        footnotes are stored but not supplied to the answer model. Penal Code
+        and Evidence Act PDFs are retained locally but not indexed.
+
+5. GROUNDED ANSWERS - IMPLEMENTED; FIRST RUN FOUND FAILURES
+Purpose: improve answers using automatically retrieved legal passages.
+Work: connected query embedding, top-five section retrieval and Groq answering;
+      included file, section, PDF/printed page references and edition disclaimer.
+Deliverables: rag.py, app.py, test_rag.py.
+Retention: the first grounded report and older dataset were removed during cleanup.
+Result: 9/20 responses; 11 validation errors; complete answer content 3/13.
+Finding: exact model-written quotes were brittle; repeated source IDs were also
+         rejected. Original rejected outputs were not retained. Separate Q02/Q14
+         diagnostics reproduced altered-quote rejection, not every original cause.
+Other failures: missing conditions, wrong deadline interpretation, absent
+                footnotes and inadequate clarification/current-law handling.
+Decision: keep the failed run, simplify references and record error diagnostics.
+
+6. SIMPLER REFERENCES AND REVISED RUN - COMPLETE
+Work: model now writes an answer and selects source IDs. Backend copies source
+      passages/pages and merges duplicate IDs; model-written quotes are unnecessary.
+      Added parsed-response/error metadata and separate citation-support review.
+Deliverables: updated rag.py, app.py, evaluate.py, test_rag.py;
+              grounded-v0.3.json (20 first attempts, no scored retries).
+Verified: 10 offline tests passed; dataset and generation-code hashes remained
+          unchanged during the run. All returned excerpts matched stored text.
+
+LATEST RESULTS - PROVISIONAL SEMANTIC REVIEW
+Response delivery                         20/20; zero request errors
+Complete answer content                   9/14 (64.29%)
+Complete answers with supporting sources   7/14 (50%)
+Required points covered                    32/42 (76.19%)
+Expected answer/clarify/abstain behavior     16/20 (80%)
+Gold evidence retrieved                    13/14 answer cases
+Mean response time                         5.261 seconds
+
+The 14 answer cases exclude six clarification/insufficient-evidence cases.
+Successful requests and matching excerpts do not prove correct answers.
+Questions and reference format changed between versions 0.2 and 0.3, so score
+changes are not a controlled measure of model or retrieval improvement.
+
+OPEN ISSUES FROM THE LATEST RUN
+- Q10/Q11: correct answer content, but unrelated source references selected.
+- Q02/Q03/Q08: important qualifications omitted.
+- Q12/Q19: conditional bail provision misread as an investigation deadline/rule.
+- Q13: amendment-history footnote absent from retrieval; answer unsupported.
+- Q14/Q15: answered instead of clarifying; Q15 added an unsupported requirement.
+- Q18: archive figure did not adequately answer the current-law question.
+Decision: keep dataset v0.3 fixed for the next experiment; fix source selection,
+          conditions, clarification and footnote retrieval rather than hide failures.
+
+7. DOCUMENTATION AND LOCAL REPO HANDOVER - COMPLETE
+Deliverables: README.md (setup, architecture, experiments and limitations),
+              PLAN.md (next work), tracker.txt (this summary), AI_USAGE.md.
+Completed: condensed the tracker and documented actual AI assistance, checks and
+           corrected suggestions. The current result file remains unchanged.
+Destination: ml-engineer-entry-assessment (this repository).
+Completed: copied the agreed code, four CrPC PDFs, source metadata, datasets,
+           results and docs; preserved the existing .git history.
+Local setup: created a fresh .venv and a private .env (mode 0600). Both are ignored
+             by Git. .env.example contains blank credentials for new checkouts.
+Verified: 10 tests, pip dependency check, 441-page ingestion check, unchanged
+          sample output, HTTP health and one live /ask response with a citation.
+          No configured credential values found in the handover files.
+Runtime: reuses the existing Railway database; no re-ingestion or re-embedding.
+Git: current implementation recorded as one checkpoint after the initial commit.
+Pending: push and production deployment; no earlier Git history was fabricated.
+
+NEXT WORK, IN ORDER
+1. Improve source selection and answer conditions; clarify ambiguous/current-law
+   questions. Rerun the same v0.3 set into a separate result file.
+2. Add verified relevant amendments and footnote support; review affected cases.
+3. Demonstrate a real document addition/replacement and affected-only embedding
+   updates. Preserving unchanged vectors is tested; a full update demo is pending.
+4. Add minimal browser input, answers and source display; deploy the app or record
+   a demo. A hosted database is not a deployed web application.
+5. Review and commit the copied work, then publish the repository when ready.
+
+RETAINED RECORDS
+- Current experiment: grounded-v0.3.json + evaluation.json.
+- Current file responsibilities, results and design decisions: README.md.
+- AI assistance and review process: AI_USAGE.md.
+
+REPOSITORY CLEANUP
+- Removed the first grounded report, older dataset snapshot and its LLM-only
+  baseline report from this repository at the user's request.
+- Removed legacy evaluator mode and old-case exclusion; grounded is now default.
+- Kept current questions/results byte-for-byte, including provenance metadata.
+- Source extraction sample and current offline tests remain necessary and retained.
+
+LOCAL TROUBLESHOOTING AND MAKE COMMANDS
+- Database and Gemini checked independently after a generic retrieval error;
+  both worked and the same question returned HTTP 200 on recheck. The original
+  transient failure was not captured, so its precise cause remains unknown.
+- Retrieval messages now distinguish database, embedding API/network and data
+  failures without exposing credentials. No automatic retries added.
+- Makefile added for setup, run, test, check, ingest, embed and evaluate.
+- make test: 12 tests passed. make run with an alternate port passed HTTP health.
+- Setup preserves existing .env; evaluation uses a separate output file.
+
+GIT CHECKPOINT
+- User requested a commit of the current working backend, sources, evaluation,
+  tests, Makefile and documentation. Earlier development steps are documented,
+  not represented by invented historical commits.
+- Checked candidate files for configured credentials; .env, .venv and caches
+  remain ignored. Publication/push is separate from this local commit.

@@ -1,0 +1,699 @@
+{
+  "dataset_version": "0.3",
+  "status": "Revised development dataset; version 0.3 has not been run or scored.",
+  "created_on": "2026-09-17",
+  "purpose": "Initial development evaluation for the English CrPC assistant. These 20 cases are a starter set, not a comprehensive or held-out legal benchmark.",
+  "source_edition": {
+    "id": "crpc-full-archive-eval-v0.3",
+    "description": "Downloaded English Bangladesh Code archive. The source URL contains 2021-11-23; this is an asset-path date, not a certified amendment cutoff.",
+    "file": "documents/crpc-1898-part-2.pdf",
+    "sha256": "691ae36aa388b46396c7c51e344beb2b162c31d9c36ededa8c34c70467bc8ff0",
+    "prepared_text": "documents/sample.txt",
+    "prepared_text_sha256": "d18dc34f5430624d51ef62de113f1c5013456848b3f16e592a820ca04d11850b",
+    "supported_sections": [
+      "1",
+      "173",
+      "174"
+    ],
+    "pdf_pages": [
+      1,
+      98,
+      99
+    ],
+    "printed_pages": [
+      39,
+      136,
+      137
+    ],
+    "amendment_cutoff": null,
+    "excluded_from_substantive_answers": [
+      "Verified current amendments absent from the indexed archive",
+      "Schedule/form content not indexed",
+      "Other retained Acts not yet indexed"
+    ],
+    "scope_note": "Gold answers are checked against the cited original PDF pages, not limited to sample.txt. Runtime retrieval uses 515 archived section/range records from CrPC Parts 2 and 3; the sample hash is retained for provenance. Historical footnote evidence is in the source PDF but not currently sent by retrieval."
+  },
+  "model_instruction": "Answer in English from the specified source edition and supplied evidence. Attribute legal statements to that edition; do not imply it is verified current law. Ask for clarification when essential details are missing. If evidence is insufficient, explain the gap without inventing facts or citations. Include section citations and source excerpts when answering from retrieved text. Provide legal information, not personalized legal advice.",
+  "evaluation_rules": [
+    "Keep the dataset version, source hashes and model instruction fixed when comparing experiments. A source update requires a new dataset version and review of affected expectations.",
+    "Record the actual instruction and context for each run. The historical LLM-only baseline uses its general-knowledge prompt; grounded runs use retrieved passages. Different prompts, corpus scopes or dataset versions are not a controlled ablation.",
+    "Never provide reference_answer, required_points, must_not_claim, gold source selections or evidence snippets to the model as part of a test prompt.",
+    "Accept accurate paraphrases. For answer cases, check every required point, essential qualifiers and absence of forbidden claims; do not use exact-string matching as the correctness metric.",
+    "Score answer correctness, expected behavior and citation validity separately. Record failure examples and observed outputs; no model run or performance result is included in this file.",
+    "For grounded answer cases, citations must resolve to the expected section and a source page supporting the claim; excerpts must match the cited source. Q08 needs both pages 98 and 99 for its full answer.",
+    "For clarification or insufficient-evidence cases, assess the stated gap and avoidance of invented conclusions. An empty sources list is intentional; do not require a fabricated legal citation.",
+    "A statement absent from the frozen corpus is unsupported for this evaluation even if true elsewhere. Do not label every unsupported statement factually false.",
+    "The revised set concentrates on sections 1, 173 and 174. Expand coverage and add held-out questions before claiming general CrPC performance.",
+    "Question prompts must not reveal section numbers, subsection identifiers, statute numbers or evaluation terms such as archive, corpus or prepared sample. Legal references belong in answers and citation metadata."
+  ],
+  "review": {
+    "method": "Version 0.3 prompt/rubric consistency review. Q20 notification evidence checked on original PDF page 99 (printed 137), with surrounding pages read for context. Other gold snippets retained; Q08 corpus-coverage wording corrected. This revision is not a new performance result.",
+    "official_cross_check_urls": [
+      "https://bdlaws.minlaw.gov.bd/act-print-75/section-print-20869.html",
+      "https://bdlaws.minlaw.gov.bd/act-print-1640/section-print-58317.html"
+    ],
+    "online_sources_in_test_context": false,
+    "note": "The official site was consulted for a cross-check and to identify amendment coverage gaps. Online text has not been added to the frozen corpus. Q18-Q19 test evidence limits, not knowledge of the missing amendments."
+  },
+  "cases": [
+    {
+      "id": "Q01",
+      "category": "direct",
+      "question": "What is the main law for criminal court procedures in Bangladesh, and when did it first take effect?",
+      "expected_behavior": "answer",
+      "reference_answer": "The source calls it the Code of Criminal Procedure, 1898. Section 1(1) says it came into force on 1 July 1898.",
+      "required_points": [
+        "Code of Criminal Procedure, 1898",
+        "Commencement: 1 July 1898"
+      ],
+      "must_not_claim": [
+        "22 March 1898 is the commencement date"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "1(1)",
+          "pdf_pages": [
+            1
+          ],
+          "printed_pages": [
+            39
+          ],
+          "evidence": [
+            "This Act may be called the Code of Criminal Procedure, 1898",
+            "it shall come into force on the first day of July, 1898"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q02",
+      "category": "direct",
+      "question": "Does the same criminal procedure law cover all of Bangladesh? What if a special law provides a different procedure?",
+      "expected_behavior": "answer",
+      "reference_answer": "It extends to the whole of Bangladesh. In the absence of a specific provision to the contrary, it does not affect a special law in force, a special jurisdiction or power, or a special form of procedure prescribed by another law in force.",
+      "required_points": [
+        "Whole of Bangladesh",
+        "Preserves the listed special laws, jurisdictions, powers and procedures",
+        "Qualifier: unless a specific provision provides otherwise"
+      ],
+      "must_not_claim": [
+        "The Code always overrides every special law",
+        "Special laws can never be affected under any circumstances"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "1(2)",
+          "pdf_pages": [
+            1
+          ],
+          "printed_pages": [
+            39
+          ],
+          "evidence": [
+            "It extends to the whole of Bangladesh",
+            "in the absence of any specific provision to the contrary",
+            "or any special jurisdiction or power conferred, or any special form of procedure prescribed, by any other law for the time being in force"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q03",
+      "category": "direct",
+      "question": "After an investigation ends, which police officer sends the report, who receives it, and is there a prescribed form?",
+      "expected_behavior": "answer",
+      "reference_answer": "In the supplied archive, the officer in charge sends the report to a Magistrate empowered to take cognizance of the offence on a police report. The report must use the form prescribed by the Government.",
+      "required_points": [
+        "A Magistrate empowered to take cognizance on a police report",
+        "The officer in charge forwards the report",
+        "Government-prescribed form"
+      ],
+      "must_not_claim": [
+        "The report must always be sent directly to the High Court",
+        "Any court is an interchangeable recipient"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(1)(a)",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "the officer in charge of the police-station",
+            "forward to a Magistrate empowered to take cognizance of the offence on a police-report a report, in the form prescribed by the Government"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q04",
+      "category": "direct",
+      "question": "What information should be included in the police report about a criminal case?",
+      "expected_behavior": "answer",
+      "reference_answer": "The supplied archive requires the report to identify the parties, the nature of the information and people acquainted with the circumstances. For an arrested accused, it must state whether the person was forwarded in custody or released on bond and, if released, whether with or without sureties.",
+      "required_points": [
+        "Names of the parties and nature of the information",
+        "Names of people acquainted with the circumstances",
+        "Arrested accused's custody or bond status, including sureties"
+      ],
+      "must_not_claim": [
+        "An invented list of mandatory fields",
+        "The report alone proves guilt"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(1)(a)",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "setting forth the names of the parties, the nature of the information and the names of the persons who appear to be acquainted with the circumstances of the case",
+            "whether the accused (if arrested) has been forwarded in custody or has been released on his bond",
+            "whether with or without sureties"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q05",
+      "category": "paraphrase",
+      "question": "I reported an offence to the police. Should they tell me what action they took?",
+      "expected_behavior": "answer",
+      "reference_answer": "Yes. Section 173(1)(b) requires the officer in charge to communicate the action taken to the person, if any, who first supplied information about the offence, in the prescribed manner.",
+      "required_points": [
+        "Communicate the action taken",
+        "Recipient is the person who first supplied the information, if any",
+        "In the prescribed manner"
+      ],
+      "must_not_claim": [
+        "This clause guarantees the informant a free copy of the full report",
+        "This clause sets a seven-day notification deadline"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(1)(b)",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "communicate, in such manner as may be prescribed by the Government, the action taken by him to the person, if any, by whom the information relating to the commission of the offence was first given"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q06",
+      "category": "direct",
+      "question": "When must a police report go through a senior officer before reaching court, and can that officer ask for more investigation?",
+      "expected_behavior": "answer",
+      "reference_answer": "In the supplied archive, this route applies where a superior police officer has been appointed under section 158 and a general or special Government order directs submission through that officer. Pending the Magistrate's orders, that officer may direct the officer in charge to investigate further.",
+      "required_points": [
+        "Superior officer appointed under section 158",
+        "A general or special Government order directs submission through that officer",
+        "May direct further investigation pending the Magistrate's orders"
+      ],
+      "must_not_claim": [
+        "All police reports automatically require this route",
+        "The superior officer decides guilt instead of the Magistrate"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(2)",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "Where a superior officer of police has been appointed under section 158",
+            "the report shall in any cases in which the Government by general or special order so directs, be submitted through that officer",
+            "make further investigation"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q07",
+      "category": "direct",
+      "question": "The police have finished investigating and sent their report to the magistrate. It says I was released on a bond. What happens to that bond now?",
+      "expected_behavior": "answer",
+      "reference_answer": "If the report shows the accused was released on bond, the supplied provision requires the Magistrate to make an order concerning discharge of the bond, or otherwise as the Magistrate thinks fit. Release on bond does not by itself establish that the case has ended.",
+      "required_points": [
+        "Magistrate makes an order",
+        "Discharge of the bond or another order as the Magistrate thinks fit"
+      ],
+      "must_not_claim": [
+        "The bond is automatically discharged without an order",
+        "Release on bond automatically amounts to acquittal"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(3)",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "the Magistrate shall make such order for the discharge of such bond or otherwise as he thinks fit"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q08",
+      "category": "cross_page",
+      "question": "What documents and witness statements should the police send to the court along with their report?",
+      "expected_behavior": "answer",
+      "reference_answer": "The supplied rule applies to cases covered by section 170. For those cases, the police officer must send the Magistrate the documents or relevant extracts the prosecution proposes to rely on, except those already sent during investigation. The officer must also send the section 161(3) statements of everyone the prosecution proposes to examine as a witness. The indexed archive now includes section 170, but the question gives no case-specific facts establishing whether the user's case qualifies.",
+      "required_points": [
+        "Applies to a case covered by section 170",
+        "Documents or relevant extracts relied on by the prosecution",
+        "Exception for documents already sent during investigation",
+        "Section 161(3) statements of proposed prosecution witnesses",
+        "Keep the case-category qualification; do not decide whether the user's case qualifies from the question alone"
+      ],
+      "must_not_claim": [
+        "The exception covers witness statements as well as documents",
+        "Every person's statement is required regardless of whether the prosecution proposes to call them",
+        "This attachment requirement applies without qualification to every police report"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(3A), opening",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "When such report is in respect of a case to which section 170 applies"
+          ]
+        },
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(3A)(a)-(b)",
+          "pdf_pages": [
+            99
+          ],
+          "printed_pages": [
+            137
+          ],
+          "evidence": [
+            "all documents or relevant extracts thereof on which the prosecution proposes to rely other than those already sent to the Magistrate during investigation",
+            "the statements recorded under sub-section (3) of section 161 of all the persons whom the prosecution proposes to examine as its witnesses"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q09",
+      "category": "paraphrase",
+      "question": "Can the police investigate again after they have already sent their report to court?",
+      "expected_behavior": "answer",
+      "reference_answer": "The supplied archive permits further investigation after a report has been sent under section 173(1). If further oral or documentary evidence is obtained, the officer in charge must send a further report or reports in the prescribed form. Subsections (1) to (3A) apply as far as may be. This describes the archived provision; later amendments have not been verified.",
+      "required_points": [
+        "Further investigation is not precluded",
+        "Further oral or documentary evidence leads to a further report in the prescribed form",
+        "Subsections (1)-(3A) apply as far as may be"
+      ],
+      "must_not_claim": [
+        "Submission permanently bars further investigation",
+        "The cited clause expressly requires prior judicial permission",
+        "The cited clause establishes an unrestricted right regardless of every other law"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(3B)",
+          "pdf_pages": [
+            99
+          ],
+          "printed_pages": [
+            137
+          ],
+          "evidence": [
+            "Nothing in this section shall be deemed to preclude further investigation",
+            "obtains further evidence, oral or documentary",
+            "the provisions of sub-section (1) to (3A) shall, as far as may be, apply"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q10",
+      "category": "paraphrase",
+      "question": "I'm accused in a criminal case. Can I get a copy of the police report before the inquiry or trial starts?",
+      "expected_behavior": "answer",
+      "reference_answer": "Yes. On application, the accused is to receive a copy of a report forwarded under this section before the inquiry or trial begins. Payment is the default, unless the Magistrate considers a free copy appropriate for a special reason.",
+      "required_points": [
+        "Accused must apply",
+        "Copy before the inquiry or trial starts",
+        "Payment normally required; special-reason exception decided by Magistrate"
+      ],
+      "must_not_claim": [
+        "Copies can only be supplied after trial",
+        "Copies are always free",
+        "A specific application form or fee not present in the source"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(4) and proviso",
+          "pdf_pages": [
+            99
+          ],
+          "printed_pages": [
+            137
+          ],
+          "evidence": [
+            "on application, be furnished to the accused before the commencement of the inquiry or trial",
+            "the same shall be paid for unless the Magistrate for some special reason thinks fit to furnish it free of cost"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q11",
+      "category": "false_premise",
+      "question": "I'm the accused, so I'll automatically get the police report for free, right?",
+      "expected_behavior": "answer",
+      "reference_answer": "No. In the supplied text, the accused receives the copy on application. The copy is normally paid for; the Magistrate may provide it free for a special reason.",
+      "required_points": [
+        "Correct the false premise",
+        "Application is required",
+        "Paid by default; Magistrate may allow a free copy for a special reason"
+      ],
+      "must_not_claim": [
+        "The question's free-without-application premise is correct",
+        "The Magistrate must always waive payment"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(4) and proviso",
+          "pdf_pages": [
+            99
+          ],
+          "printed_pages": [
+            137
+          ],
+          "evidence": [
+            "on application, be furnished to the accused",
+            "the same shall be paid for unless the Magistrate for some special reason thinks fit to furnish it free of cost"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q12",
+      "category": "direct",
+      "question": "Can the police leave an investigation pending for as long as they want?",
+      "expected_behavior": "answer",
+      "reference_answer": "The supplied archive requires investigations to be completed without unnecessary delay, with the report sent as soon as the investigation is completed. That wording does not authorize arbitrary delay. The prepared sources do not establish a verified current numerical deadline, so the assistant must not invent one or say that no other deadlines exist.",
+      "required_points": [
+        "Investigation must be completed without unnecessary delay",
+        "Report follows as soon as the investigation is completed",
+        "Current numerical deadlines are not established by the prepared sources"
+      ],
+      "must_not_claim": [
+        "Police may delay indefinitely without restriction",
+        "There is no investigation deadline anywhere in current law",
+        "An invented number of days presented as grounded in the prepared sources"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(1), opening",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "Every investigation under this Chapter shall be completed without unnecessary delay",
+            "as soon as it is completed"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q13",
+      "category": "historical_amendment",
+      "question": "Which law introduced the rules about attaching prosecution documents to a police report and sending another report after further investigation?",
+      "expected_behavior": "answer",
+      "reference_answer": "Yes. The archive's footnote attributes the insertion of the supporting-document and further-investigation provisions, sections 173(3A) and 173(3B), to section 2 and the Schedule of the Law Reforms Ordinance, 1978 (Ordinance No. XLIX of 1978). This identifies those insertions; it does not establish that every later amendment has been checked.",
+      "required_points": [
+        "Law Reforms Ordinance, 1978",
+        "Ordinance No. XLIX of 1978",
+        "Section 2 and Schedule",
+        "Attribute the answer to the archive's footnote"
+      ],
+      "must_not_claim": [
+        "Section 2 of the principal CrPC inserted these subsections",
+        "These subsections were first inserted by the 2026 amendment"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "173(3A)-(3B), footnote 1",
+          "pdf_pages": [
+            98
+          ],
+          "printed_pages": [
+            136
+          ],
+          "evidence": [
+            "Sub-sections (3A) and (3B) were inserted by section 2 and Schedule of the Law Reforms Ordinance, 1978 (Ordinance No. XLIX of 1978)"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q14",
+      "category": "ambiguous",
+      "question": "They said they can arrest me. Is that allowed?",
+      "expected_behavior": "clarify",
+      "reference_answer": "Who do you mean by 'they', and what are the circumstances or alleged offence? I need those details to identify the relevant provision.",
+      "required_points": [
+        "Ask who may make the arrest",
+        "Ask for the relevant circumstances or alleged offence",
+        "Avoid an unconditional legal conclusion"
+      ],
+      "must_not_claim": [
+        "Arrest is definitely lawful or unlawful on the information given"
+      ],
+      "sources": [],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q15",
+      "category": "ambiguous",
+      "question": "Can I get a copy of a document from my criminal case?",
+      "expected_behavior": "clarify",
+      "reference_answer": "Which document do you want a copy of, and what is your role in the matter, such as accused or informant?",
+      "required_points": [
+        "Clarify the document",
+        "Clarify the person's role before applying a rule"
+      ],
+      "must_not_claim": [
+        "Assume the user is the accused seeking a section 173 report",
+        "Invent a fee or application procedure"
+      ],
+      "sources": [],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q16",
+      "category": "unsupported",
+      "question": "How much will my lawyer charge to handle my criminal case?",
+      "expected_behavior": "insufficient_evidence",
+      "reference_answer": "The supplied legal texts do not establish your lawyer's fee. It depends on the particular lawyer and arrangement; an amount cannot be determined from this corpus.",
+      "required_points": [
+        "State that the corpus does not establish the fee",
+        "Do not invent an amount"
+      ],
+      "must_not_claim": [
+        "A fixed fee or range supposedly established by the cited CrPC provisions"
+      ],
+      "sources": [],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q17",
+      "category": "unsupported",
+      "question": "Has the police report been filed in my case, G.R. 123/2026 in Dhaka?",
+      "expected_behavior": "insufficient_evidence",
+      "reference_answer": "I cannot determine the filing status from statutory PDFs. That requires the actual case record or an authorized case-status source, which this corpus does not contain.",
+      "required_points": [
+        "No access to case-specific filing status",
+        "Identify need for the actual case record or an authorized status source"
+      ],
+      "must_not_claim": [
+        "The report has or has not been filed",
+        "Access to a court or police database that the system does not have"
+      ],
+      "sources": [],
+      "note": "Synthetic case identifier used only for testing; no real case is asserted.",
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q18",
+      "category": "version_sensitive",
+      "question": "My case is before a first-class magistrate. What is the largest fine that court can impose in 2026?",
+      "expected_behavior": "insufficient_evidence",
+      "reference_answer": "The current maximum cannot be verified from this archive and its incomplete amendment coverage. The applicable current consolidated provision or amendments must be included before giving a figure for 2026.",
+      "required_points": [
+        "Distinguish the archived edition from the requested current date",
+        "State that current amendment coverage is insufficient",
+        "Do not give an unverified current limit"
+      ],
+      "must_not_claim": [
+        "The archive's ten thousand taka is verified as the current limit",
+        "An invented replacement limit"
+      ],
+      "sources": [],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q19",
+      "category": "version_sensitive",
+      "question": "Under the latest rules, how many days can the police take to finish investigating a criminal case?",
+      "expected_behavior": "insufficient_evidence",
+      "reference_answer": "The prepared archive does not establish a verified deadline under the latest rules. It contains older wording about avoiding unnecessary delay, but the later investigation-deadline provision, section 173B, is absent from the prepared set. A current official provision must be added before giving a number of days.",
+      "required_points": [
+        "Distinguish the older general duty from a verified current numerical deadline",
+        "Explain the missing amendment evidence",
+        "Do not mistake missing corpus evidence for absence of a legal deadline"
+      ],
+      "must_not_claim": [
+        "Current law has no deadline or police have unlimited time",
+        "Section 173B does not exist",
+        "A numerical deadline presented as supported by the prepared corpus"
+      ],
+      "sources": [],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    },
+    {
+      "id": "Q20",
+      "category": "direct",
+      "question": "When police receive a report of a suspected unlawful killing, which magistrate should they notify and how soon?",
+      "expected_behavior": "answer",
+      "reference_answer": "In the archived provision, the officer in charge or another specially empowered police officer must immediately notify the nearest Executive Magistrate empowered to hold inquests. This identifies the notification duty, not the whole investigation procedure or verified current law.",
+      "required_points": [
+        "Nearest Executive Magistrate empowered to hold inquests",
+        "Notification must be immediate"
+      ],
+      "must_not_claim": [
+        "Notify any magistrate interchangeably",
+        "Wait for the investigation or trial to finish before notification",
+        "The archive establishes verified current law"
+      ],
+      "sources": [
+        {
+          "file": "documents/crpc-1898-part-2.pdf",
+          "section": "174(1)",
+          "pdf_pages": [
+            99
+          ],
+          "printed_pages": [
+            137
+          ],
+          "evidence": [
+            "shall immediately give intimation thereof to the",
+            "Executive Magistrate",
+            "empowered to hold inquests"
+          ]
+        }
+      ],
+      "source_edition": "crpc-full-archive-eval-v0.3"
+    }
+  ],
+  "revision_note": "Seven prompts clarified/replaced and one outdated reference explanation corrected. Valid difficult, ambiguous, unsupported and current-law cases remain. Historical scores belong to version 0.2; do not present a changed-dataset score as a controlled improvement.",
+  "revision": {
+    "previous_dataset": "evaluation-v0.2.json",
+    "previous_sha256": "92f6cfdeb62f01e3730f8194dfe9e2babdf203a6c9feec959d9e351666127ba7",
+    "changes": [
+      {
+        "id": "Q02",
+        "previous_question": "Does the criminal procedure law apply across Bangladesh, and what happens if another law sets a special procedure?",
+        "question": "Does the same criminal procedure law cover all of Bangladesh? What if a special law provides a different procedure?",
+        "reason": "Split a compound prompt into two plain-language questions; same legal expectation."
+      },
+      {
+        "id": "Q03",
+        "previous_question": "When the police finish investigating a criminal case, who should they send their report to?",
+        "question": "After an investigation ends, which police officer sends the report, who receives it, and is there a prescribed form?",
+        "reason": "Ask explicitly for the officer and prescribed form already required by the rubric."
+      },
+      {
+        "id": "Q07",
+        "previous_question": "If the police report says I was released on a bond, what should the court do about that bond?",
+        "question": "The police have finished investigating and sent their report to the magistrate. It says I was released on a bond. What happens to that bond now?",
+        "reason": "Specify the completed-investigation report stage to distinguish it from general bail or bond execution."
+      },
+      {
+        "id": "Q13",
+        "previous_question": "Were the rules about sending supporting papers and continuing an investigation added later? Which law added them?",
+        "question": "Which law introduced the rules about attaching prosecution documents to a police report and sending another report after further investigation?",
+        "reason": "Identify the police report and document rules more clearly; retain the historical-footnote challenge."
+      },
+      {
+        "id": "Q14",
+        "previous_question": "Can they arrest me?",
+        "question": "They said they can arrest me. Is that allowed?",
+        "reason": "Use a natural user scenario while retaining missing actor and circumstances; still requires clarification."
+      },
+      {
+        "id": "Q15",
+        "previous_question": "Can I get a copy?",
+        "question": "Can I get a copy of a document from my criminal case?",
+        "reason": "Identify the criminal-case context but leave document and role unspecified; still requires clarification."
+      },
+      {
+        "id": "Q20",
+        "previous_question": "What must the police do when someone dies in suspicious circumstances? Please explain the whole procedure.",
+        "question": "When police receive a report of a suspected unlawful killing, which magistrate should they notify and how soon?",
+        "reason": "Replace the obsolete incomplete-sample question with a narrower source-supported notification question; changes scope and expected behavior, not directly comparable."
+      },
+      {
+        "id": "Q08",
+        "reason": "Remove the obsolete claim that section 170 is absent; preserve the applicability condition and case-specific uncertainty. Question and required points unchanged."
+      }
+    ]
+  }
+}
