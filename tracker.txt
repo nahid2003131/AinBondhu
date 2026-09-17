@@ -116,7 +116,8 @@ Verified: 10 tests, pip dependency check, 441-page ingestion check, unchanged
           No configured credential values found in the handover files.
 Runtime: reuses the existing Railway database; no re-ingestion or re-embedding.
 Git: current implementation recorded as one checkpoint after the initial commit.
-Pending: push and production deployment; no earlier Git history was fabricated.
+Published: backend checkpoint 398518c on GitHub main. Production deployment pending;
+           no earlier Git history was fabricated.
 
 NEXT WORK, IN ORDER
 1. Improve source selection and answer conditions; clarify ambiguous/current-law
@@ -124,9 +125,9 @@ NEXT WORK, IN ORDER
 2. Add verified relevant amendments and footnote support; review affected cases.
 3. Demonstrate a real document addition/replacement and affected-only embedding
    updates. Preserving unchanged vectors is tested; a full update demo is pending.
-4. Add minimal browser input, answers and source display; deploy the app or record
+4. Review the browser input, answers and source display; deploy the app or record
    a demo. A hosted database is not a deployed web application.
-5. Review and commit the copied work, then publish the repository when ready.
+5. Review subsequent changes and record focused commits.
 
 RETAINED RECORDS
 - Current experiment: grounded-v0.3.json + evaluation.json.
@@ -156,3 +157,38 @@ GIT CHECKPOINT
   not represented by invented historical commits.
 - Checked candidate files for configured credentials; .env, .venv and caches
   remain ignored. Publication/push is separate from this local commit.
+
+CONVERSATION AND LEGAL ROUTING
+Request: ordinary conversation should work without legal evidence; legal answers
+         must still rely on stored sources and clarify or abstain when necessary.
+Files: app.py handles routing/direct replies and sums usage across provider calls;
+       rag.py clarifies missing-context and unsupported-legal-answer instructions;
+       test_rag.py checks routing, source handling and failures;
+       evaluate.py records routing settings for future runs;
+       README.md and AI_USAGE.md describe the behavior and limitations.
+Deliverable: /ask replies to non-legal conversation without querying Gemini/DB.
+             Legal/mixed questions use retrieval and keep reference requirements.
+             General replies have no legal disclaimer or source-version claim.
+Verified: 21 offline tests passed. Existing evaluation questions/results unchanged.
+Live check: identity replied without citations; police-report answer cited section
+            173/page 99; today's amendments returned insufficient_evidence.
+Correction: the first live ambiguous question guessed a document. Added an initial
+            clarification route so missing context is handled before retrieval.
+            Recheck asked which document was wanted; a greeting with a police-report
+            question still routed to legal retrieval. Router-generated legal prose
+            is discarded; only the later grounded answer can reach the user.
+Tradeoff: legal requests add one Groq routing call. Model routing may misclassify;
+          no conversation history or general-knowledge legal fallback was added.
+
+BROWSER WORKSPACE
+Deliverable: white-theme question workspace at http://127.0.0.1:8000 on the same
+             Flask server. No new framework, service or runtime dependency.
+Files: templates/index.html (layout and dialogs), static/app.css (responsive theme),
+       static/app.js (API calls, answers, references, loading, errors and retry).
+       app.py serves the page/assets and only the four allowlisted public PDFs.
+Features: example questions, fresh question/reset, copy answer, expandable source
+          excerpts, original PDF page links, library coverage and archive limits.
+Checks: 23 offline tests including asset routes and private-file blocking; JavaScript
+        syntax check and HTTP homepage check. Browser interaction/visual QA pending.
+Limits: no conversation history; unchanged legal evaluation results. Production
+        deployment and a fresh full evaluation remain pending.

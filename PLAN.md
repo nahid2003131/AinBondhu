@@ -13,6 +13,7 @@ Current files and their responsibilities are listed in README.md.
 - Prepared the current 20-question evaluation and recorded grounded-v0.3.json.
 - Verified the clean local copy with a fresh environment and live API request.
 - Added setup documentation, progress tracking and AI_USAGE.md.
+- Added conversational routing and a white-theme browser workspace with PDF references.
 
 ## Current result
 
@@ -27,14 +28,14 @@ of correctness. Older test files were removed; the current dataset/results remai
 2. Include relevant footnotes and reviewed amendments with traceable versions.
 3. Save a new evaluation separately; compare the same questions and configurations.
 4. Demonstrate adding/replacing a document and updating only affected embeddings.
-5. Add a minimal browser UI, then deploy the application or record a demo video.
+5. Review the browser workspace, then deploy the application or record a demo video.
 6. Record subsequent changes as focused commits; publish when ready. The current
    implementation is one checkpoint, not a reconstruction of earlier development history.
 
 ## Limits
 
 The PDFs are not verified current law. Footnotes are stored but not passed to the
-answer model. Schedules/forms and other Acts are not indexed. UI, a full incremental
+answer model. Schedules/forms and other Acts are not indexed. A full incremental
 update demo and production deployment remain pending. Hybrid retrieval/reranking
 should follow measured needs rather than be added automatically.
 

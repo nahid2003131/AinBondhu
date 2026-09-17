@@ -4,8 +4,8 @@ A backend-first English Q&A project using archived Bangladesh Code of Criminal
 Procedure PDFs. It retrieves legal passages and returns an answer with section,
 page and source excerpts. It provides legal information, not legal advice.
 
-Current state: Flask API and hosted retrieval are working. Browser UI, verified
-amendment coverage, a document-update demonstration and app deployment are pending.
+Current state: a white-theme browser workspace, Flask API and hosted retrieval are
+implemented. Verified amendments, a document-update demonstration and app deployment are pending.
 The latest run returned 20/20 responses; answer and reference quality still need work.
 
 ## Quick commands
@@ -35,7 +35,13 @@ flowchart LR
     DB --> Embed[Gemini document embeddings]
     Embed --> DB
     Question[User question] --> Flask[Flask API]
-    Flask --> Query[Gemini query embedding]
+    Browser[Browser workspace] --> Question
+    Flask --> Route[Groq conversational routing]
+    Route -->|Ordinary conversation| Chat[Direct reply without legal citations]
+    Route -->|Essential context missing| Clarify[Focused clarification]
+    Route -->|Legal or mixed question| Query[Gemini query embedding]
+    Chat --> Result
+    Clarify --> Result
     Query --> Search[Top-five section search]
     DB --> Search
     Search --> Groq[Groq answer + source IDs]
@@ -92,8 +98,8 @@ Fill the local `.env` with your existing credentials, one setting per line:
 | `PORT` | Local HTTP port; default 8000 |
 
 Use the existing Railway database connection to reuse the stored 515 sections and
-embeddings. Moving the code does not move or erase that data. `/ask` still needs
-internet access and both API keys. Existing environment variables override `.env`.
+embeddings. Moving the code does not move or erase that data. `/ask` needs internet
+and Groq; legal retrieval also needs Gemini and the database. Existing environment variables override `.env`.
 Real credentials belong only in local `.env`, which `.gitignore` excludes.
 
 Check the existing database without API calls or database writes:
@@ -121,10 +127,18 @@ curl http://127.0.0.1:8000/ask \
   -d '{"question":"Can I get a copy of the police report?"}'
 ```
 
-The API runs at `http://127.0.0.1:8000`; it does not yet provide a browser UI.
+Open `http://127.0.0.1:8000` for the browser workspace. It uses the same Flask server
+and `/ask` endpoint; no separate frontend server or build step is needed.
 Stop it with Ctrl+C. If the old folder's server still uses port 8000, stop that
 server first or run `PORT=8001 .venv/bin/python app.py` and use port 8001 in curl.
 Flask's local development server is not the production deployment setup.
+
+The interface includes example questions, loading/error/retry states, answer copying,
+expandable reference excerpts and links to original PDF pages. The source library
+distinguishes indexed text from reference-only PDFs. Questions and answers are kept
+only in the current page; they are not stored as browser history. The interface adapts
+to narrow screens and supports keyboard submission, native dialogs and reduced motion.
+Only the four public CrPC PDFs are served at `/sources/<filename>`.
 
 Responses include `status`, `answer`, `citations`, `source_version`, `error` and
 `disclaimer`. A citation contains `document`, `section`, `pdf_pages`, `printed_pages`
@@ -132,6 +146,28 @@ and `excerpt`. Status is `answer`, `clarify`, `insufficient_evidence` or `error`
 Input validation errors return 4xx. Retrieval failures return 503 with separate database, Gemini API/network or data-check messages; malformed model
 responses or unknown source IDs return 502. The API does not fall back to general
 knowledge on retrieval failure. No automatic provider retry is enabled.
+
+### Conversation and legal questions
+
+| Request | Behavior |
+|---|---|
+| Greetings, ordinary non-legal questions, app identity or capabilities | Groq replies directly; no database or embedding request. Model identity comes from `GROQ_MODEL`. |
+| Legal question, including one mixed with small talk | Retrieve archive passages, then answer with supporting references. |
+| Legal question with missing or insufficient evidence | Explain the information gap; do not fill it with general legal knowledge. |
+| Ambiguous legal question | Ask a focused clarification before retrieval when essential context is missing; the grounded model can also request clarification. |
+
+Conversation responses use `status: "answer"`, `citations: []`, `source_version: null`
+and `disclaimer: null`. Legal responses retain the legal disclaimer and citation rules.
+Clarifications before retrieval use `status: "clarify"`, no citations, no source
+version and the legal disclaimer.
+Each request is independent; a follow-up must include enough context because chat
+history is not stored. General replies do not have access to live web information.
+
+Routing and a conversational reply or initial clarification share one Groq call. A clear legal request uses that
+routing call plus the existing embedding/retrieval and Groq answer call, adding some
+latency and quota use. Evaluation usage totals include both Groq calls. Routing is
+model-based and can misclassify requests; it is not a guaranteed legal-content filter.
+The recorded v0.3 results predate this change and do not measure its quality.
 
 ## Data ingestion and updates
 
@@ -269,7 +305,7 @@ Hybrid search and reranking are possible experiments, not features claimed as co
 
 | Requirement | Current state |
 |---|---|
-| Text input, backend API, LLM integration | API implemented; browser UI pending |
+| Text input, backend API, LLM integration | Browser workspace and API implemented; production deployment pending |
 | Ingestion and retrieval | Archived CrPC body indexed; schedules and related Acts pending |
 | Section citations and excerpts | Implemented; source selection/semantic support need improvement |
 | Ambiguous/unsupported handling and disclaimer | Disclaimer and some abstentions work; clarification/current-law failures remain |
@@ -277,7 +313,7 @@ Hybrid search and reranking are possible experiments, not features claimed as co
 | Dataset, results and experiment/failure report | Included in this repository |
 | README and architecture diagram | Included here |
 | AI_USAGE.md | [Tools, delegated tasks, review and corrections](AI_USAGE.md) |
-| Repository URL and meaningful Git history | Current backend recorded as a checkpoint after the initial commit; publication pending |
+| Repository URL and meaningful Git history | Backend checkpoint published to [GitHub](https://github.com/nahid2003131/ml-engineer-entry-assessment); subsequent work uses focused commits |
 | Demo video or deployment link | Pending; hosting the database alone is not app deployment |
 
 Image, speech and document-upload interfaces are optional and not implemented.
@@ -288,13 +324,16 @@ as required by the assessment. This progress report does not claim final complet
 
 | File | Purpose |
 |---|---|
-| `app.py` | Flask API, request validation, Groq generation and response/error formatting. |
+| `app.py` | Serves the browser workspace/public PDFs; Flask API, request validation, routing, generation and response formatting. |
+| `templates/index.html` | Workspace layout, question form, source library and help dialogs. |
+| `static/app.css` | White/teal theme, typography, mobile layouts and accessible interaction states. |
+| `static/app.js` | Calls `/ask`; displays answers/references, handles loading/errors/retry and page controls. |
 | `rag.py` | Retrieves passages, gives the grounding instruction and resolves source IDs to citations. |
 | `ingest.py` | Validates the four PDFs, extracts sections and loads text/metadata into PostgreSQL. |
 | `embed.py` | Creates/resumes document embeddings, checks their status and searches sections. |
 | `extract_sample.py` | Rebuilds the five-page extraction sample and checks layout/footnote handling. |
 | `evaluate.py` | Runs current questions, records outputs/timings and computes metrics from saved reviews. |
-| `test_rag.py` | Offline regression tests for references, API errors and input handling. |
+| `test_rag.py` | Offline regression tests for conversation routing, grounded references, API errors and input handling. |
 | `Makefile` | Short commands for setup, running, tests, data preparation and evaluation. |
 | `requirements.txt` | Python dependencies installed into the local virtual environment. |
 | `evaluation.json` | Current 20 questions, reference answers, semantic rubric and source metadata. |

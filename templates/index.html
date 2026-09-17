@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Explore Bangladesh criminal procedure with clear answers and references to archived source documents.">
+  <title>CrPC — Your legal workspace</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23145349'/%3E%3Cpath d='M10 12h20M20 8v23M12 30h16M12 13l-5 11h10zm16 0-5 11h10z' stroke='white' fill='none' stroke-width='1.5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-scales" viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M4 7h16M6 7 2 15h8L6 7Zm12 0-4 8h8l-4-8Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9Z"/><path d="M8 8h8M8 12h5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5v16M12 6C8 3 5 3 2 4v15c3-1 6-1 10 2 4-3 7-3 10-2V4c-3-1-6-1-10 2Z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L11 13M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+  </svg>
+  <a class="skip-link" href="#question">Skip to question</a>
+  <aside class="sidebar" aria-label="Workspace navigation">
+    <a class="brand" href="/" aria-label="CrPC home">
+      <span class="brand-mark"><svg class="icon"><use href="#i-scales"/></svg></span>
+      <span><strong>CrPC<span class="brand-period">.</span></strong><small>Legal assistant</small></span>
+    </a>
+    <button class="new-question" id="new-question"><svg class="icon"><use href="#i-plus"/></svg><span>New question</span></button>
+    <p class="nav-label">WORKSPACE</p>
+    <nav>
+      <a class="nav-item active" href="#question" aria-current="page"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a question</span></a>
+      <button class="nav-item" data-dialog="sources-dialog"><svg class="icon"><use href="#i-book"/></svg><span>Source library</span><span class="nav-count">4</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="edition-note"><span class="eyebrow">KNOW YOUR SOURCES</span><h2>An archive, with context.</h2><p>Answers draw on the archived Code. Recent amendments are not yet verified.</p><button class="text-button" data-dialog="about-dialog">About this assistant <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+      <div class="jurisdiction"><span class="country-mark" aria-hidden="true"></span><span>Made for Bangladesh</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar"><div class="breadcrumb">Your workspace <span>/</span> <strong>Ask a question</strong></div><button class="archive-badge" data-dialog="about-dialog"><svg class="icon"><use href="#i-book"/></svg> Archived edition</button></header>
+    <div class="workspace">
+      <section class="welcome" id="welcome">
+        <div class="topic-label"><span></span>BANGLADESH · CRIMINAL PROCEDURE</div>
+        <h1>A clearer understanding<br>of <em>the law.</em></h1>
+        <p>Ask in your own words. Get a clear explanation,<br class="desktop-break"> with references you can explore.</p>
+      </section>
+
+      <section class="result" id="result" aria-label="Question and answer" hidden>
+        <div class="question-heading"><span class="eyebrow">YOUR QUESTION</span><h2 id="asked-question"></h2></div>
+        <div class="answer-panel" aria-busy="false" id="answer-panel">
+          <div class="answer-heading"><span class="answer-mark"><svg class="icon"><use href="#i-scales"/></svg></span><strong>CrPC assistant</strong><span class="response-label" id="response-label"></span><button class="icon-button" id="copy-answer" aria-label="Copy answer" title="Copy answer" hidden><svg class="icon"><use href="#i-copy"/></svg></button></div>
+          <div id="loading" class="loading" role="status" hidden><span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span> Preparing your answer…</div>
+          <p class="answer-text" id="answer-text" tabindex="-1"></p>
+          <div id="citations" class="citations" hidden><div class="sources-heading"><svg class="icon"><use href="#i-book"/></svg><h3>Sources for this answer</h3><span id="citation-count"></span></div><div id="citation-list"></div></div>
+          <p class="answer-disclaimer" id="answer-disclaimer" hidden></p>
+          <div class="request-error" id="request-error" role="alert" hidden><strong>We couldn’t complete this request.</strong><p id="error-message"></p><button class="text-button" id="retry">Try again <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+        </div>
+      </section>
+
+      <form class="composer" id="ask-form">
+        <label class="sr-only" for="question">Your question</label>
+        <textarea id="question" name="question" placeholder="What would you like to understand?" maxlength="4000" rows="3" required aria-describedby="question-hint"></textarea>
+        <div class="composer-toolbar"><span class="input-hint" id="question-hint"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a complete question</span></span><span class="character-count" id="character-count" hidden></span><button class="submit-button" id="submit" type="submit"><span>Ask question</span><svg class="icon"><use href="#i-arrow"/></svg></button></div>
+      </form>
+      <div class="composer-note"><span>Each question is answered independently.</span><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span></div>
+
+      <section class="suggestions" id="suggestions" aria-label="Example questions">
+        <div class="suggestions-heading"><span>NOT SURE WHERE TO START?</span><span class="fine-line"></span></div>
+        <div class="suggestion-grid">
+          <button class="suggestion" data-question="Can I get a copy of the police report?"><span class="suggestion-category">01 <span>Police reports</span></span><strong>Can I get a copy of the police report?</strong><svg class="icon"><use href="#i-arrow"/></svg></button>
+          <button class="suggestion" data-question="How long can police detain someone without taking them before a Magistrate?"><span class="suggestion-category">02 <span>Arrest & detention</span></span><strong>How long can police keep someone in custody?</strong><svg class="icon"><use href="#i-arrow"/></svg></button>
+          <button class="suggestion" data-question="What does the archived Code say about bail for a bailable offence?"><span class="suggestion-category">03 <span>Bail</span></span><strong>How does bail work for a bailable offence?</strong><svg class="icon"><use href="#i-arrow"/></svg></button>
+        </div>
+      </section>
+      <footer class="workspace-footer"><svg class="icon"><use href="#i-info"/></svg><p>Legal information, not legal advice. Check current law before relying on an answer.</p></footer>
+    </div>
+  </main>
+
+  <dialog id="sources-dialog" aria-labelledby="sources-title">
+    <div class="dialog-top"><span class="eyebrow">THE REFERENCE SHELF</span><button class="icon-button close-dialog" aria-label="Close source library"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <h2 id="sources-title">Source library</h2><p class="dialog-description">The Code of Criminal Procedure, 1898.<br>Four original PDFs from the Bangladesh Code archive.</p>
+    <div class="library-list">
+    {% for part, description, pages, indexed in [(1, 'Contents & index', 38, false), (2, 'Statutory provisions', 123, true), (3, 'Statutory provisions, continued', 120, true), (4, 'Schedules & forms', 160, false)] %}
+      <a class="library-item" href="{{ url_for('source_pdf', filename='crpc-1898-part-' ~ part ~ '.pdf') }}" target="_blank" rel="noopener"><span class="pdf-icon">PDF</span><span class="library-name"><strong>CrPC · Part {{ part }}</strong><small>{{ description }} · {{ pages }} pages</small></span><span class="source-state {{ 'indexed' if indexed else '' }}">{{ 'Used for answers' if indexed else 'Reference only' }}</span><svg class="icon"><use href="#i-external"/></svg></a>
+    {% endfor %}
+    </div><p class="library-note">Answers currently search the statutory text in Parts 2 and 3. Schedules, other Acts and recent amendments are not covered.</p>
+  </dialog>
+  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-top"><span class="eyebrow">A LITTLE CONTEXT</span><button class="icon-button close-dialog" aria-label="Close about this assistant"><svg class="icon"><use href="#i-close"/></svg></button></div><h2 id="about-title">Clarity starts with a source.</h2><p class="dialog-description">This assistant helps you explore Bangladesh criminal procedure in plain language.</p><ol class="about-steps"><li><strong>Ask in your own words.</strong><p>Include the situation and document you mean. Each question starts fresh.</p></li><li><strong>Read the explanation.</strong><p>Legal answers use the archived text. If details or evidence are missing, the assistant should ask or say so.</p></li><li><strong>Explore the reference.</strong><p>Expand a source to read the excerpt, or open the original PDF at the cited page.</p></li></ol><div class="about-limit">The archive is not verified current law. Answers can contain mistakes; references help you check them. This is legal information, not legal advice.</div></dialog>
+  <div class="sr-only" id="announcement" aria-live="polite"></div>
+  <noscript><p class="noscript">Enable JavaScript to use this workspace, or <a href="{{ url_for('source_pdf', filename='crpc-1898-part-2.pdf') }}">open the source PDF</a>.</p></noscript>
+</body>
+</html>

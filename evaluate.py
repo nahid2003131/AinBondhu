@@ -232,6 +232,8 @@ def main():
     if args.mode == "grounded" and not args.summarize:
         import psycopg
         configuration.update({"rag_sha256": sha256(ROOT / "rag.py"),
+                              "routing_instruction": backend.ROUTING_INSTRUCTION,
+                              "routing_schema": backend.ROUTING_SCHEMA,
                               "embedding_code_sha256": sha256(ROOT / "embed.py"),
                               "embedding_profile": backend.rag.embed.PROFILE,
                               "retrieval_top_k": 5,
@@ -274,7 +276,7 @@ def main():
                     "General-knowledge prompt. No source-edition metadata, "
                     "PDFs, evidence passages or reference answers are supplied."
                     if args.mode == "llm-only" else
-                    "Current /ask pipeline: query embedding, full-archive retrieval, grounded prompt; no gold references sent."
+                    "Current /ask pipeline: conversational routing, then query embedding, archive retrieval and grounded generation for legal requests; no gold references sent."
                 ),
                 "grading_scope": "The frozen archive rubric is used only after generation. Claims outside it "
                     "may be unsupported for this evaluation without necessarily being factually false.",
