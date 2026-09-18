@@ -1,361 +1,573 @@
-# Bangladesh criminal-law assistant
+# Bangladesh Criminal-Law Q&A Assistant
 
-A backend-first English Q&A project using archived Bangladesh Code of Criminal
-Procedure PDFs. It retrieves legal passages and returns an answer with section,
-page and source excerpts. It provides legal information, not legal advice.
+A source-grounded legal-information assistant for Bangladesh criminal procedure.
 
-Current state: a white-theme browser workspace, Flask API and hosted retrieval are
-implemented. Verified amendments, a document-update demonstration and app deployment are pending.
-The latest run returned 20/20 responses; answer and reference quality still need work.
+The application answers English-language questions using an indexed archive of the **Code of Criminal Procedure, 1898** and the **Evidence Act, 1872**. Legal answers are generated only after retrieval and include traceable section/page excerpts from the indexed sources.
 
-## Quick commands
+The project focuses on:
+- grounded answers instead of model-memory answers;
+- section-level legal provenance;
+- incremental, version-aware document ingestion;
+- failure-focused evaluation and controlled experiments.
 
-Run from this repository folder:
+> **Legal information only; not legal advice.**  
+> The indexed corpus is archival and is not certified as the complete current law of Bangladesh.
 
-```bash
-make setup       # First-time environment/dependency setup; preserves existing .env
-make run         # Start the API using local .env settings
-make test        # Offline tests
-make check       # Read-only PDF/database checks
-make evaluate    # New run saved to grounded-next.json
-```
+**Repository:** [GitHub](https://github.com/nahid2003131/ml-engineer-entry-assessment)  
+**Live app:** [Railway deployment](https://ml-engineer-entry-assessment-production.up.railway.app)
 
-If another server is already running, stop it with Ctrl+C before `make run`, or use
-`make run PORT=8001`. `make evaluate OUTPUT=my-run.json` selects another result file;
-existing results are protected. `make ingest` and `make embed` load a new database
-and missing embeddings; they are not needed merely to restart the app. `make help`
-lists the commands. Poppler remains a system prerequisite for PDF extraction.
+---
 
-## Architecture and technology choices
+## Assessment Deliverables
+
+| # | Deliverable | Evidence |
+|---|---|---|
+| 1 | Git repository | [Repository](https://github.com/nahid2003131/ml-engineer-entry-assessment) |
+| 2 | Functional web app / API | [Live app](https://ml-engineer-entry-assessment-production.up.railway.app), [`app.py`](app.py) |
+| 3 | Legal ingestion / retrieval pipeline | [`ingest.py`](ingest.py), [`embed.py`](embed.py), [`rag.py`](rag.py) |
+| 4 | Evaluation dataset / results | [`evaluation.json`](evaluation.json), [`EVALUATION.md`](EVALUATION.md), [`grounded-v0.4.json`](grounded-v0.4.json), [`grounded-v0.5.json`](grounded-v0.5.json) |
+| 5 | Experiment / failure analysis | [`EXPERIMENTS.md`](EXPERIMENTS.md) |
+| 6 | Incremental document-update demo | [`INCREMENTAL_UPDATE_DEMO.md`](INCREMENTAL_UPDATE_DEMO.md) |
+| 7 | Documentation / architecture | This README |
+| 8 | Meaningful Git history | Repository commit history |
+| 9 | Deployment link | [Railway deployment](https://ml-engineer-entry-assessment-production.up.railway.app) |
+| 10 | AI usage disclosure | [`AI_USAGE.md`](AI_USAGE.md) |
+
+---
+
+## System Overview
+
+The active retrieval corpus contains **697 indexed legal section/range records**:
+
+| Source | Records | Active source version |
+|---|---:|---|
+| Code of Criminal Procedure, 1898 | 515 | `crpc-old-bdlaws-archive-2026-09-17-v1` |
+| Evidence Act, 1872 | 182 | `evidence-act-old-bdlaws-2023-12-03-v1` |
+| **Total** | **697** | — |
+
+Source provenance, hashes and scope are documented in [`documents/SOURCES.md`](documents/SOURCES.md). Machine-readable source configuration is in [`documents/sources.json`](documents/sources.json).
+
+### Architecture
 
 ```mermaid
 flowchart LR
-    PDFs[Archived CrPC PDFs] --> Ingest[Section-aware extraction]
-    Ingest --> DB[(PostgreSQL + pgvector)]
-    DB --> Embed[Gemini document embeddings]
-    Embed --> DB
-    Question[User question] --> Flask[Flask API]
-    Browser[Browser workspace] --> Question
-    Flask --> Route[Groq conversational routing]
-    Route -->|Ordinary conversation| Chat[Direct reply without legal citations]
-    Route -->|Essential context missing| Clarify[Focused clarification]
-    Route -->|Legal or mixed question| Query[Gemini query embedding]
-    Chat --> Result
-    Clarify --> Result
-    Query --> Search[Top-five section search]
-    DB --> Search
-    Search --> Groq[Groq answer + source IDs]
-    Search --> Cite[Backend source excerpts and pages]
-    Groq --> Cite
-    Cite --> Result[JSON answer and references]
+    U[User] --> UI[Browser UI]
+    UI --> API[Flask API]
+    API --> ROUTER[Conversation / legal router]
+
+    ROUTER -->|conversation| DIRECT[Direct response]
+    ROUTER -->|missing context| CLARIFY[Clarification]
+    ROUTER -->|legal| RAG[RAG pipeline]
+
+    RAG --> QE[Gemini query embedding]
+    QE --> DB[(PostgreSQL + pgvector)]
+    DB --> RETRIEVE[Top-k legal retrieval]
+    RETRIEVE --> GEN[Groq grounded generation]
+    GEN --> CITE[Backend citation resolver]
+
+    DIRECT --> OUT[Response]
+    CLARIFY --> OUT
+    CITE --> OUT[Answer + citations + disclaimer]
+
+    API <--> CHAT[(Conversation store)]
 ```
 
-| Component | Choice and reason |
+### Legal ingestion and retrieval
+
+```mermaid
+flowchart LR
+    PDF[Legal PDFs] --> MANIFEST[documents/sources.json]
+    MANIFEST --> CHECK[Validate hash / pages / source]
+    CHECK --> PARSER[Parser profile]
+    PARSER --> SECTIONS[Section / range records]
+    SECTIONS --> DB[(legal_sections)]
+    DB --> EMBED[Gemini document embeddings]
+    EMBED --> VECTOR[(pgvector)]
+
+    Q[Legal question] --> QEMBED[Gemini query embedding]
+    QEMBED --> VECTOR
+    VECTOR --> TOPK[Top-k sections]
+    TOPK --> PROMPT[Grounded prompt]
+    PROMPT --> LLM[Groq]
+    LLM --> IDS[Evidence IDs]
+    IDS --> RESOLVE[Resolve stored section/page/excerpt]
+    RESOLVE --> ANSWER[Grounded answer]
+```
+
+### Request flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Flask
+    participant R as Router
+    participant E as Gemini
+    participant P as pgvector
+    participant G as Groq
+
+    U->>F: POST /ask
+    F->>R: classify request
+
+    alt conversation
+        R-->>F: direct reply
+        F-->>U: answer
+    else missing essential context
+        R-->>F: clarify
+        F-->>U: focused question
+    else legal
+        F->>E: embed query
+        E-->>F: query vector
+        F->>P: similarity search
+        P-->>F: legal passages
+        F->>G: question + retrieved evidence
+        G-->>F: answer + evidence IDs
+        F->>F: resolve citations
+        F-->>U: answer + excerpts + disclaimer
+    end
+```
+
+Previous assistant messages may provide conversational context, but only retrieved legal text is treated as legal evidence.
+
+---
+
+## Technology
+
+| Layer | Choice |
 |---|---|
-| Backend | Python 3.12 and Flask: small, understandable API with few modules. |
-| Answer generation | Groq `openai/gpt-oss-120b`; direct HTTP calls avoid another SDK. |
-| Embeddings | Gemini `gemini-embedding-2`, 768 dimensions; no local model required. |
-| Storage/search | Railway PostgreSQL with pgvector: text, metadata and vectors in one database. |
-| Extraction | Poppler and pdfplumber: preserve PDF layout, section boundaries and page references. |
-| Retrieval | Whole sections as initial units; exact cosine search is sufficient for 515 records. |
+| Backend | Python 3.12 + Flask |
+| Generation | Groq `openai/gpt-oss-120b` |
+| Embeddings | Gemini `gemini-embedding-2`, 768 dimensions |
+| Storage / vector search | PostgreSQL + pgvector |
+| PDF extraction | Poppler + `pdfplumber` |
+| Deployment | Railway + Gunicorn |
 
-The model receives the question and retrieved passages, never evaluation reference
-answers or gold source selections. It selects source IDs; the backend supplies their
-stored excerpts and page metadata. Known IDs establish provenance, not semantic truth.
-Answer correctness and citation support are reviewed separately.
+The model returns evidence IDs, while the backend resolves stored document names, section references, PDF pages and excerpts. This keeps citation metadata traceable and prevents model-written page references.
 
-## Run from a new local folder
+---
 
-Run commands from the copied repository root. Paths are resolved relative to the
-Python files, so the folder does not need to be on Desktop or use a particular name.
+## Local Setup
 
-Prerequisites: Python 3.12, internet access, Groq/Gemini API access and a PostgreSQL
-connection with pgvector. Poppler is required to regenerate/extract PDF text.
+### Prerequisites
+
+- Python 3.12
+- PostgreSQL with pgvector
+- Poppler
+- Groq API key
+- Gemini API key
+
+macOS:
 
 ```bash
-# macOS, if Poppler is not installed:
 brew install poppler
+```
 
-# Create a fresh environment in this folder:
+Debian / Ubuntu:
+
+```bash
+sudo apt-get install poppler-utils
+```
+
+Setup:
+
+```bash
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-
-# Create local settings without overwriting an existing .env:
 cp -n .env.example .env
 ```
 
-On Debian/Ubuntu, install Poppler with `sudo apt-get install poppler-utils` instead.
-Do not copy an old `.venv`: virtual environments can contain absolute paths.
+Required environment variables:
 
-Fill the local `.env` with your existing credentials, one setting per line:
+```env
+GROQ_API_KEY=...
+GROQ_MODEL=openai/gpt-oss-120b
+GEMINI_API_KEY=...
+DATABASE_URL=postgresql://...
+PORT=8000
+```
 
-| Variable | Purpose |
+Do not commit `.env`.
+
+---
+
+## Run the App
+
+```bash
+make run
+```
+
+or:
+
+```bash
+python3 app.py
+```
+
+If port 5000 is occupied:
+
+```bash
+python3 -m flask --app app run --port 5001
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:5001/health
+```
+
+Example legal request:
+
+```bash
+curl -X POST \
+  http://127.0.0.1:5001/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Can I get a copy of the police report before the inquiry or trial starts?"}'
+```
+
+---
+
+## API Behavior
+
+### `POST /ask`
+
+Request:
+
+```json
+{
+  "question": "Can I get a copy of the police report?"
+}
+```
+
+Grounded legal responses include:
+
+```json
+{
+  "status": "answer",
+  "answer": "...",
+  "citations": [
+    {
+      "id": 1,
+      "document": "crpc-1898-part-2.pdf",
+      "section": "173",
+      "pdf_pages": [99],
+      "printed_pages": [137],
+      "excerpt": "..."
+    }
+  ],
+  "source_version": "...",
+  "error": null,
+  "disclaimer": "Legal information only; not legal advice. ..."
+}
+```
+
+Statuses:
+
+| Status | Meaning |
 |---|---|
-| `GROQ_API_KEY` | Answer generation |
-| `GROQ_MODEL` | Defaults to `openai/gpt-oss-120b` |
-| `GEMINI_API_KEY` | Document and question embeddings |
-| `DATABASE_URL` | PostgreSQL connection reachable from this computer |
-| `PORT` | Local HTTP port; default 8000 |
+| `answer` | Supported answer returned |
+| `clarify` | Essential context is missing |
+| `insufficient_evidence` | Indexed sources cannot support the request |
+| `error` | Provider, retrieval, data or validation failure |
 
-Use the existing Railway database connection to reuse the stored 515 sections and
-embeddings. Moving the code does not move or erase that data. `/ask` needs internet
-and Groq; legal retrieval also needs Gemini and the database. Existing environment variables override `.env`.
-Real credentials belong only in local `.env`, which `.gitignore` excludes.
+The legal path does not silently fall back to general legal knowledge when retrieval fails.
 
-Check the existing database without API calls or database writes:
+---
 
-```bash
-.venv/bin/python embed.py --check
-```
+## Source Management and Incremental Updates
 
-For the prepared database, expect `Sections: 515; embedded: 515; pending: 0`.
-If this is a new empty database, follow the ingestion steps below first.
+Source configuration lives in [`documents/sources.json`](documents/sources.json).
 
-Start the server in one terminal:
+The ingestion flow supports:
 
 ```bash
-.venv/bin/python app.py
+python3 ingest.py --check
+python3 ingest.py --diff
+python3 ingest.py --load
 ```
 
-Keep that terminal running. In a second terminal:
+`--diff` reports document and section changes, including which embeddings need regeneration.
+
+### Evidence Act update demonstration
+
+The Evidence Act was added without rebuilding unchanged CrPC data:
+
+```text
+Documents:
+added=1
+changed=0
+unchanged=4
+
+Sections:
+added=182
+content_changed=0
+metadata_changed=0
+removed=0
+unchanged=515
+
+Embeddings requiring refresh:
+182
+```
+
+After loading:
+
+```text
+source_documents = 5
+legal_sections   = 697
+```
+
+The existing 515 CrPC records and reusable embeddings were preserved.
+
+Full walkthrough: [`INCREMENTAL_UPDATE_DEMO.md`](INCREMENTAL_UPDATE_DEMO.md).
+
+---
+
+## Embeddings and Retrieval
+
+Check embedding state:
 
 ```bash
-curl http://127.0.0.1:8000/health
-
-curl http://127.0.0.1:8000/ask \
-  -H 'Content-Type: application/json' \
-  -d '{"question":"Can I get a copy of the police report?"}'
+python3 embed.py --check
 ```
 
-Open `http://127.0.0.1:8000` for the browser workspace. It uses the same Flask server
-and `/ask` endpoint; no separate frontend server or build step is needed.
-Stop it with Ctrl+C. If the old folder's server still uses port 8000, stop that
-server first or run `PORT=8001 .venv/bin/python app.py` and use port 8001 in curl.
-Flask's local development server is not the production deployment setup.
-
-The interface includes example questions, loading/error/retry states, answer copying,
-expandable reference excerpts and links to original PDF pages. The source library
-distinguishes indexed text from reference-only PDFs. Questions and answers are kept
-only in the current page; they are not stored as browser history. The interface adapts
-to narrow screens and supports keyboard submission, native dialogs and reduced motion.
-Only the four public CrPC PDFs are served at `/sources/<filename>`.
-
-Responses include `status`, `answer`, `citations`, `source_version`, `error` and
-`disclaimer`. A citation contains `document`, `section`, `pdf_pages`, `printed_pages`
-and `excerpt`. Status is `answer`, `clarify`, `insufficient_evidence` or `error`.
-Input validation errors return 4xx. Retrieval failures return 503 with separate database, Gemini API/network or data-check messages; malformed model
-responses or unknown source IDs return 502. The API does not fall back to general
-knowledge on retrieval failure. No automatic provider retry is enabled.
-
-### Conversation and legal questions
-
-| Request | Behavior |
-|---|---|
-| Greetings, ordinary non-legal questions, app identity or capabilities | Groq replies directly; no database or embedding request. Model identity comes from `GROQ_MODEL`. |
-| Legal question, including one mixed with small talk | Retrieve archive passages, then answer with supporting references. |
-| Legal question with missing or insufficient evidence | Explain the information gap; do not fill it with general legal knowledge. |
-| Ambiguous legal question | Ask a focused clarification before retrieval when essential context is missing; the grounded model can also request clarification. |
-
-Conversation responses use `status: "answer"`, `citations: []`, `source_version: null`
-and `disclaimer: null`. Legal responses retain the legal disclaimer and citation rules.
-Clarifications before retrieval use `status: "clarify"`, no citations, no source
-version and the legal disclaimer.
-Each request is independent; a follow-up must include enough context because chat
-history is not stored. General replies do not have access to live web information.
-
-Routing and a conversational reply or initial clarification share one Groq call. A clear legal request uses that
-routing call plus the existing embedding/retrieval and Groq answer call, adding some
-latency and quota use. Evaluation usage totals include both Groq calls. Routing is
-model-based and can misclassify requests; it is not a guaranteed legal-content filter.
-The recorded v0.3 results predate this change and do not measure its quality.
-
-## Data ingestion and updates
-
-Keep all four `documents/crpc-1898-part-*.pdf` files, `documents/SOURCES.md` and
-`documents/sample.txt` in the copy. Source URLs, hashes and coverage limits are
-recorded in [documents/SOURCES.md](documents/SOURCES.md).
-
-The four PDFs contain 441 pages. Ingestion indexes the statutory body in Parts 2
-and 3: 515 section/range records across 243 body pages. Part 1 contents/index and
-Part 4 schedules/forms are validated but not indexed. Other Acts are not indexed.
-The archive's download/path date is not a verified amendment cutoff.
+Generate only missing/outdated embeddings:
 
 ```bash
-# Read-only extraction and source checks:
-.venv/bin/python ingest.py --check
-
-# For an empty database, load the checked archive and create embeddings:
-.venv/bin/python ingest.py --load
-.venv/bin/python embed.py --load
-
-# Read-only embedding status:
-.venv/bin/python embed.py --check
-
-# Retrieval smoke test (calls the query-embedding API):
-.venv/bin/python embed.py --search "Can I get a copy of the police report?"
+python3 embed.py --load
 ```
 
-Skip `--load` when reusing the prepared database. Document embeddings are batched,
-committed incrementally and skipped when content and embedding profile are unchanged.
-Changed sections are not searched until their embeddings are refreshed.
+Current state:
 
-The existing two tables are `source_documents` (source metadata and page context)
-and `legal_sections` (text, page fragments, content hashes and vectors). Page-level
-footnotes are retained but not passed to the answer model. Retrieval selects five
-sections and includes complete sections within a 16,000-character evidence budget.
+```text
+Sections: 697
+Reusable embeddings: 697
+Embeddings to generate: 0
+```
 
-To regenerate the original five-page extraction sample:
+Smoke test:
 
 ```bash
-.venv/bin/python extract_sample.py
+python3 embed.py --search \
+  "What does the Evidence Act say about confessions made to a police officer?"
 ```
 
-The output must match the frozen sample hash to reproduce existing experiments.
-A deliberate source/sample change requires a new reviewed dataset version.
+This retrieves Evidence Act Section 25 among the strongest matches.
 
-**Update support is partial.** Rerunning the current loader preserves unchanged
-vectors; this has been tested. Adding/replacing a legal document still requires
-reviewing its source definition, checksum, layout, section boundaries and edition
-identifier in `ingest.py`, then re-ingestion, affected embeddings and regression
-questions. A demonstrated update with earlier-edition preservation is still pending.
-The current source-specific parser is not a general PDF upload service.
+### Why section-aware retrieval?
+
+Legal rules often depend on provisos, cross-references and subsection boundaries. Arbitrary fixed-size chunks can separate a rule from the language that limits it.
+
+This project therefore retrieves whole legal sections/ranges with their source-page metadata.
+
+Current retrieval configuration:
+- Gemini query embeddings;
+- pgvector similarity search;
+- `top_k = 5`;
+- 16,000-character evidence budget;
+- complete sections included as evidence units.
+
+Hybrid search and reranking are not claimed as implemented features.
+
+---
+
+## Current-Law and Amendment Handling
+
+The project tracks source versions, but the archive is **not certified as complete current law**.
+
+A source downloaded in 2026 is not automatically treated as proof that every amendment through 2026 has been verified.
+
+For questions asking for:
+- current law;
+- latest amendments;
+- current-year values;
+- current fines or deadlines;
+
+the grounded prompt is instructed not to present an archived value as verified current law unless the retrieved evidence establishes currentness.
+
+This behavior is tested directly in the evaluation set.
+
+---
 
 ## Evaluation
 
+The frozen development set is [`evaluation.json`](evaluation.json) and contains 20 cases covering:
+- direct legal questions;
+- multi-part rules;
+- conditions and exceptions;
+- ambiguous questions;
+- unsupported questions;
+- current-law/version-sensitive questions;
+- case-specific status requests;
+- citation support.
+
+Run:
+
 ```bash
-# Offline tests; no database or API calls:
-.venv/bin/python -m unittest test_rag -v
-
-# Run the current grounded dataset into a NEW result file:
-.venv/bin/python evaluate.py --mode grounded --output grounded-next.json
-
-# Resume only questions not yet attempted, with the same configuration:
-.venv/bin/python evaluate.py --mode grounded --output grounded-next.json --resume
-
-# Recalculate recorded review metrics without either model API:
-.venv/bin/python evaluate.py --mode grounded --output grounded-next.json --summarize
+python3 evaluate.py \
+  --mode grounded \
+  --output grounded-next.json \
+  --limit 20 \
+  --delay 30
 ```
 
-`grounded-v0.3.json` already contains the current run. Results are never silently
-overwritten. Each attempt is saved; failures remain in the score. Default pacing
-is 30 seconds between requests. The runner stops on a request failure so its cause
-can be inspected before continuing. No retry turns a failed first attempt into a pass.
+The runner records responses, retrieved evidence, evidence IDs, latency, model usage and configuration/source hashes. Existing result files are not silently overwritten.
 
-The current [evaluation.json](evaluation.json), version 0.3, contains 14 answer,
-2 clarification and 4 insufficient-evidence questions. It is a narrow development
-set, not a held-out or current-law benchmark. Only the current dataset and result
-file are retained in this repository. Embedded revision metadata is provenance;
-the runner does not require any earlier dataset file.
+Detailed methodology and case review: [`EVALUATION.md`](EVALUATION.md).
 
-Availability, timings and source-text matches are measured automatically. Semantic
-review checks required facts, conditions, unsupported claims and whether displayed
-citations actually support the answer. Accurate paraphrases are accepted. A matching
-status or excerpt does not prove correctness. Saved quality scores are provisional
-AI-assisted rubric reviews; unreviewed quality fields remain null.
+### Metrics are separated intentionally
 
-## Experiments and results
+- **Retrieval success:** was the expected provision retrieved?
+- **Citation provenance:** is the citation a real retrieved source?
+- **Semantic citation support:** does that source support the claim?
+- **Required-point coverage:** were all material conditions preserved?
+- **Behavior correctness:** did the system answer, clarify or abstain appropriately?
 
-Configuration for the Groq runs: GPT-OSS 120B, low reasoning, temperature 0, 2,048
-maximum completion tokens and one attempt per question. Grounded runs use Gemini
-768-dimensional embeddings and top-five section retrieval. Exact configuration,
-source/code hashes, evidence, outputs and per-case review are in the result files.
+A valid excerpt alone does not make an answer correct.
 
-The current experiment tests whether section-based retrieval and backend-provided
-excerpts produce complete answers with supporting references. Source IDs replaced
-model-written exact quotes after quote-format failures were observed. This simplified
-format delivered all 20 responses, but incorrect source choices and omitted conditions
-remain. Full current outputs and review: [grounded-v0.3.json](grounded-v0.3.json).
+---
 
-Earlier work included an LLM-only baseline and a first retrieval experiment. Their
-raw reports and older dataset were removed during repository cleanup. They are not
-available here for rerunning or rescoring. The retained development decisions explain
-why the reference format changed; no removed result is presented as current evidence.
+## Results
 
-Latest results:
+### v0.4 baseline
 
-| Measure | Result |
+| Metric | Result |
 |---|---:|
-| Responses / request errors | 20/20 / 0 |
-| Complete answer content | 9/14 (64.29%) |
-| Complete answers with supporting references | 7/14 (50%) |
-| Required points covered | 32/42 (76.19%) |
-| Expected answer/clarify/abstain behavior | 16/20 (80%) |
-| Gold evidence retrieved | 13/14 answer cases |
-| Mean response time | 5.261 seconds |
+| HTTP delivery | 20/20 (100%) |
+| Expected behavior | 15/20 (75.00%) |
+| Strict answer correctness | 9/14 (64.29%) |
+| Required-point coverage | 30/42 (71.43%) |
+| Gold evidence retrieval | 13/14 (92.86%) |
+| Citation quote validity | 27/27 (100%) |
+| Answer-level groundedness | 13/18 (72.22%) |
+| Semantic citation support | 11/18 (61.11%) |
+| Strict answers + supporting citation | 7/14 (50.00%) |
+| Mean latency | 6.092 s |
 
-Question wording and reference format changed during development, so these results
-do not establish a controlled improvement over earlier work. Keep version 0.3 fixed
-for the next experiment and save its results separately.
+Raw run: [`grounded-v0.4.json`](grounded-v0.4.json)
 
-## Failure analysis and next steps
+### v0.5 prompt experiment
 
-| Finding | Evidence | Next step |
-|---|---|---|
-| Correct content can have the wrong reference | Q10/Q11 cite unrelated sections | Improve source-ID selection and check semantic citation support |
-| Material conditions omitted | Q02/Q03/Q08 | Preserve qualifications when summarizing, including across page boundaries |
-| Conditional bail rule overstated | Q12/Q19 | Check meaning in context; avoid unsupported numerical deadlines |
-| Amendment history unsupported | Q13 | Include relevant stored footnotes with traceable attribution |
-| Ambiguous requests answered directly | Q14/Q15 | Ask for essential missing details before applying a rule |
-| Requested current law not verified | Q18/Q19 | Explicitly state coverage limits and add reviewed amendments |
+The v0.5 experiment changed only the grounded-generation instruction in [`rag.py`](rag.py). Retrieval, embeddings, corpus, model, database and evaluator remained unchanged.
 
-The decision is to address these observed failures before adding retrieval complexity.
-Hybrid search and reranking are possible experiments, not features claimed as completed.
+| Metric | v0.4 | v0.5 |
+|---|---:|---:|
+| HTTP delivery | 20/20 | 20/20 |
+| Expected behavior | 15/20 (75.00%) | **16/20 (80.00%)** |
+| Strict answer correctness | 9/14 (64.29%) | **9/14 (64.29%)** |
+| Required-point coverage | 30/42 (71.43%) | **30/42 (71.43%)** |
+| Gold evidence retrieval | 13/14 (92.86%) | **13/14 (92.86%)** |
+| Strict answers + supporting citation | 7/14 (50.00%) | **8/14 (57.14%)** |
+| Mean latency | 6.092 s | **6.050 s** |
+| Total tokens | 67,470 | **70,882** |
 
-## Assessment deliverables
+Raw run: [`grounded-v0.5.json`](grounded-v0.5.json)
 
-| Requirement | Current state |
+The result is not presented as a general accuracy improvement. It improved some grounding behavior, current-law caution and citation selection while strict correctness remained flat.
+
+Full experiment report: [`EXPERIMENTS.md`](EXPERIMENTS.md).
+
+---
+
+## Failure Analysis
+
+Observed remaining failure classes include:
+
+| Failure class | Example issue |
 |---|---|
-| Text input, backend API, LLM integration | Browser workspace and API implemented; production deployment pending |
-| Ingestion and retrieval | Archived CrPC body indexed; schedules and related Acts pending |
-| Section citations and excerpts | Implemented; source selection/semantic support need improvement |
-| Ambiguous/unsupported handling and disclaimer | Disclaimer and some abstentions work; clarification/current-law failures remain |
-| Amendments and version handling | Hash/version metadata present; verified amendments and update demo pending |
-| Dataset, results and experiment/failure report | Included in this repository |
-| README and architecture diagram | Included here |
-| AI_USAGE.md | [Tools, delegated tasks, review and corrections](AI_USAGE.md) |
-| Repository URL and meaningful Git history | Backend checkpoint published to [GitHub](https://github.com/nahid2003131/ml-engineer-entry-assessment); subsequent work uses focused commits |
-| Demo video or deployment link | Pending; hosting the database alone is not app deployment |
+| Lost qualifications | Multi-part rules can be compressed |
+| Wrong law attribution | Cross-references can confuse statute identity |
+| Citation semantic mismatch | A valid retrieved passage may not support the final claim |
+| Historical provenance | Amendment footnotes are not first-class retrieval records |
+| Ambiguity routing | Some underspecified questions are answered instead of clarified |
+| Case-status requests | The statutory corpus cannot know live filing status |
+| Current-law verification | Archived text may not establish the latest operative rule |
 
-Image, speech and document-upload interfaces are optional and not implemented.
-All submitted work must be reviewed, tested and understood well enough to explain,
-as required by the assessment. This progress report does not claim final completion.
+These are documented case-by-case in [`EVALUATION.md`](EVALUATION.md) and [`EXPERIMENTS.md`](EXPERIMENTS.md).
 
-## What each file does
+A two-pass LLM evidence-audit approach was also tested and rejected because the additional model call caused provider quota pressure. The retained v0.5 experiment uses a stricter single-pass grounded prompt.
+
+---
+
+## Conversation Persistence
+
+Conversation storage is implemented in [`chat_store.py`](chat_store.py).
+
+Recent chat history may be used to resolve follow-up wording, but it is never treated as legal evidence:
+
+```text
+conversation history = context
+retrieved legal text  = evidence
+```
+
+The application does not provide user authentication or live court-record access.
+
+---
+
+## Testing
+
+Offline tests:
+
+```bash
+python3 -m unittest test_rag -v
+```
+
+Read-only checks:
+
+```bash
+python3 ingest.py --check
+python3 embed.py --check
+```
+
+These checks validate software and data consistency; they do not certify the archive as complete current law.
+
+---
+
+## Key Files
 
 | File | Purpose |
 |---|---|
-| `app.py` | Serves the browser workspace/public PDFs; Flask API, request validation, routing, generation and response formatting. |
-| `templates/index.html` | Workspace layout, question form, source library and help dialogs. |
-| `static/app.css` | White/teal theme, typography, mobile layouts and accessible interaction states. |
-| `static/app.js` | Calls `/ask`; displays answers/references, handles loading/errors/retry and page controls. |
-| `rag.py` | Retrieves passages, gives the grounding instruction and resolves source IDs to citations. |
-| `ingest.py` | Validates the four PDFs, extracts sections and loads text/metadata into PostgreSQL. |
-| `embed.py` | Creates/resumes document embeddings, checks their status and searches sections. |
-| `extract_sample.py` | Rebuilds the five-page extraction sample and checks layout/footnote handling. |
-| `evaluate.py` | Runs current questions, records outputs/timings and computes metrics from saved reviews. |
-| `test_rag.py` | Offline regression tests for conversation routing, grounded references, API errors and input handling. |
-| `Makefile` | Short commands for setup, running, tests, data preparation and evaluation. |
-| `requirements.txt` | Python dependencies installed into the local virtual environment. |
-| `evaluation.json` | Current 20 questions, reference answers, semantic rubric and source metadata. |
-| `grounded-v0.3.json` | Current run: actual responses, retrieved evidence, reviews, metrics and failures. |
-| `README.md` | Architecture, setup/run commands, ingestion, evaluation, results and this file guide. |
-| `PLAN.md` | Current scope and the ordered remaining work. |
-| `tracker.txt` | Concise record of completed work, verification and open issues. |
-| `AI_USAGE.md` | AI tools, delegated tasks, review process and corrected suggestions. |
-| `.env.example` | Blank local configuration template; safe to commit. |
-| `.gitignore` | Excludes credentials, environments and generated caches from Git. |
-| `documents/SOURCES.md` | Source download URLs, PDF checksums, page counts and edition limits. |
-| `documents/sample.txt` | Checked extraction sample; its hash is still required by evaluation. |
-| `documents/crpc-1898-part-1.pdf` | Original contents/index; validated but not indexed for answers. |
-| `documents/crpc-1898-part-2.pdf` | Original statutory text used for section extraction and citations. |
-| `documents/crpc-1898-part-3.pdf` | Remaining statutory text used for section extraction and citations. |
-| `documents/crpc-1898-part-4.pdf` | Original schedules/forms; used by sample checks, not indexed for answers. |
+| [`app.py`](app.py) | Flask API, routing and orchestration |
+| [`rag.py`](rag.py) | Retrieval, grounding prompt and citation resolution |
+| [`chat_store.py`](chat_store.py) | Conversation persistence |
+| [`ingest.py`](ingest.py) | Source validation, parsing, diff and loading |
+| [`embed.py`](embed.py) | Embedding generation/reuse and search |
+| [`evaluate.py`](evaluate.py) | Evaluation runner |
+| [`evaluation.json`](evaluation.json) | Frozen 20-case evaluation set |
+| [`EVALUATION.md`](EVALUATION.md) | Evaluation methodology and review |
+| [`EXPERIMENTS.md`](EXPERIMENTS.md) | Experiment and failure analysis |
+| [`INCREMENTAL_UPDATE_DEMO.md`](INCREMENTAL_UPDATE_DEMO.md) | Document-update demonstration |
+| [`AI_USAGE.md`](AI_USAGE.md) | AI usage disclosure |
+| [`documents/sources.json`](documents/sources.json) | Machine-readable source manifest |
+| [`documents/SOURCES.md`](documents/SOURCES.md) | Source provenance |
+| [`grounded-v0.4.json`](grounded-v0.4.json) | Baseline run |
+| [`grounded-v0.5.json`](grounded-v0.5.json) | Prompt experiment run |
 
-Local-only files: `.env` holds credentials and `.venv/` contains installed dependencies.
-Both are ignored by Git. `__pycache__/` is generated by Python and is also ignored.
-The existing `.git/` directory holds the initial commit and the current implementation
-checkpoint. Further work should use focused commits; no earlier history is fabricated.
+---
 
-The clean copy passed the 10 offline tests, dependency checks, full ingestion check,
-sample regeneration and one real HTTP answer request. These checks establish local
-runnability, not improved answer accuracy. Use the run commands above to start the API.
+## Known Limitations
+
+- The corpus is archival, not a certified current-law database.
+- Current amendments are not fully verified.
+- The evaluation set is small and development-oriented.
+- Retrieval is semantic vector top-k only.
+- Amendment footnotes are not first-class retrieval records.
+- The model can still omit material qualifications.
+- Citation provenance is deterministic, but semantic support is not automatically guaranteed.
+- Some ambiguity and case-status routing failures remain.
+- There is no live court-record integration or user authentication.
+- Provider quotas can temporarily affect generation.
+
+---
+
+## Responsible Use
+
+This application is a legal-information prototype and engineering assessment. It is not a substitute for a lawyer, an official consolidated statute, verified amendment research or court records.
+
+For important legal questions, users should verify the result against current official sources.
+
+---
+
+## Documentation
+
+- [`EVALUATION.md`](EVALUATION.md) — evaluation methodology and results
+- [`EXPERIMENTS.md`](EXPERIMENTS.md) — controlled experiments and failure analysis
+- [`INCREMENTAL_UPDATE_DEMO.md`](INCREMENTAL_UPDATE_DEMO.md) — incremental source updates
+- [`documents/SOURCES.md`](documents/SOURCES.md) — source provenance and hashes
+- [`AI_USAGE.md`](AI_USAGE.md) — AI usage disclosure
