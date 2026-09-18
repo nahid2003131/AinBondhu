@@ -8,7 +8,10 @@ const conversationList = byId("conversation-list");
 
 const CLIENT_STORAGE_KEY = "crpc-client-id";
 const ACTIVE_CONVERSATION_KEY = "crpc-active-conversation";
-const publicPDFs = new Set([1, 2, 3, 4].map((part) => `crpc-1898-part-${part}.pdf`));
+const publicPDFs = new Set([
+  ...[1, 2, 3, 4].map((part) => `crpc-1898-part-${part}.pdf`),
+  "evidence-act-1872.pdf",
+]);
 
 let busy = false;
 let activeConversationId = localStorage.getItem(ACTIVE_CONVERSATION_KEY) || "";
@@ -121,6 +124,9 @@ function showHome() {
   document.body.classList.remove("has-answer");
   byId("result").hidden = true;
   question.value = "";
+  question.placeholder = "What would you like to understand?";
+  const hint = byId("conversation-hint");
+  if (hint) hint.textContent = "You can ask a follow-up question and continue this conversation.";
   countCharacters();
   autoResizeQuestion();
   question.focus();
@@ -256,6 +262,13 @@ function validCitations(citations) {
   );
 }
 
+function sourceLabel(documentName) {
+  const part = documentName.match(/crpc-1898-part-(\d)\.pdf$/)?.[1];
+  if (part) return `CrPC · Part ${part}`;
+  if (documentName === "evidence-act-1872.pdf") return "Evidence Act, 1872";
+  return documentName;
+}
+
 function buildCitations(citations, sourcePrefix) {
   const wrapper = element("div", "citations");
   if (!citations.length) {
@@ -279,14 +292,13 @@ function buildCitations(citations, sourcePrefix) {
     summary.append(element("span", "citation-number", citation.id));
 
     const title = element("span", "citation-title", `Section ${citation.section}`);
-    const part = citation.document.match(/part-(\d)\.pdf$/)?.[1];
     const pages = citation.pdf_pages.join(", ");
     const printed = citation.printed_pages.join(", ");
     title.append(
       element(
         "span",
         "citation-meta",
-        `${part ? `CrPC · Part ${part}` : citation.document} · PDF page ${pages} · Printed page ${printed}`
+        `${sourceLabel(citation.document)} · PDF page ${pages} · Printed page ${printed}`
       )
     );
 
@@ -823,10 +835,20 @@ async function ask(text) {
       );
 
       if (!isNewConversation) touchConversation(activeConversationId);
+
+      const hint = byId("conversation-hint");
+      if (data.status === "clarify") {
+        question.placeholder = "Add the missing detail here…";
+        if (hint) hint.textContent = "Add the missing detail below and continue the same conversation.";
+      } else {
+        question.placeholder = "Ask a follow-up question…";
+        if (hint) hint.textContent = "Want to go deeper? Ask a follow-up below — recent context will be used.";
+      }
+
       announce(
         data.status === "clarify"
           ? "A clarification is needed. Read the answer and include the missing details in your next question."
-          : "Your answer is ready."
+          : "Your answer is ready. You can ask a follow-up question below."
       );
       scrollToLatest();
     } finally {

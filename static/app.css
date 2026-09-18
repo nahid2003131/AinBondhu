@@ -585,7 +585,7 @@ button svg,a svg {
   align-items:center;
   justify-content:center;
   gap:8px;
-  color:#8b968f;
+  color:#66776f;
   font-size:12px;
   line-height:1.6;
   margin:42px 0 0;
@@ -819,12 +819,15 @@ button svg,a svg {
 }
 
 .answer-disclaimer {
-  font-size:12px;
-  color:#829087;
-  line-height:1.7;
+  font-size:13px;
+  color:#51665d;
+  line-height:1.65;
   margin:22px 0 0;
-  padding-top:15px;
-  border-top:1px solid var(--line);
+  padding:12px 14px;
+  border:1px solid #dfe8e3;
+  border-left:3px solid var(--green);
+  border-radius:6px;
+  background:#f6f9f7;
 }
 
 .loading {
@@ -1613,4 +1616,69 @@ dialog h2 {
     margin-bottom:28px;
     padding-bottom:27px;
   }
+}
+
+/* Keep saved conversations inside their own scrollable area so they never
+   overlap the source/about panel at the bottom of the sidebar. */
+.sidebar {
+  overflow:hidden;
+}
+
+.conversation-nav {
+  flex:1 1 auto;
+  min-height:88px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding-bottom:14px;
+}
+
+.conversation-list {
+  padding-bottom:4px;
+}
+
+.sidebar-bottom {
+  flex:0 0 auto;
+  margin-top:0;
+  position:relative;
+  z-index:2;
+  background:#f8faf9;
+}
+
+/* Keep legal notices readable even for long text. */
+.answer-disclaimer {
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+
+.answer-disclaimer::before {
+  content:"Important";
+  display:block;
+  margin-bottom:4px;
+  color:var(--green);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.about-developer {
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid var(--line);
+}
+
+.about-developer p {
+  margin:8px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.7;
+}
+
+.about-developer a {
+  color:var(--green);
+  font-weight:600;
+  text-underline-offset:3px;
 }

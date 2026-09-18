@@ -35,7 +35,7 @@
     <p class="nav-label">WORKSPACE</p>
     <nav>
       <a class="nav-item active" href="#question" aria-current="page"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a question</span></a>
-      <button class="nav-item" data-dialog="sources-dialog"><svg class="icon"><use href="#i-book"/></svg><span>Source library</span><span class="nav-count">4</span></button>
+      <button class="nav-item" data-dialog="sources-dialog"><svg class="icon"><use href="#i-book"/></svg><span>Source library</span><span class="nav-count">5</span></button>
     </nav>
 
     <section class="conversation-nav" aria-labelledby="recent-conversations-label">
@@ -46,7 +46,7 @@
     </section>
 
     <div class="sidebar-bottom">
-      <div class="edition-note"><span class="eyebrow">KNOW YOUR SOURCES</span><h2>An archive, with context.</h2><p>Answers draw on the archived Code. Recent amendments are not yet verified.</p><button class="text-button" data-dialog="about-dialog">About this assistant <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+      <div class="edition-note"><span class="eyebrow">KNOW YOUR SOURCES</span><h2>An archive, with context.</h2><p>Answers draw on the archived CrPC and Evidence Act. Current amendments are not verified.</p><button class="text-button" data-dialog="about-dialog">About this assistant <svg class="icon"><use href="#i-arrow"/></svg></button></div>
       <div class="jurisdiction"><span class="country-mark" aria-hidden="true"></span><span>Made for Bangladesh</span></div>
     </div>
   </aside>
@@ -87,7 +87,7 @@
         <textarea id="question" name="question" placeholder="What would you like to understand?" maxlength="4000" rows="3" required aria-describedby="question-hint"></textarea>
         <div class="composer-toolbar"><span class="input-hint" id="question-hint"><svg class="icon"><use href="#i-chat"/></svg><span>Ask a question or continue the conversation</span></span><span class="character-count" id="character-count" hidden></span><button class="submit-button" id="submit" type="submit"><span>Ask question</span><svg class="icon"><use href="#i-arrow"/></svg></button></div>
       </form>
-      <div class="composer-note"><span>Follow-up questions can use the recent context in this conversation.</span><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span></div>
+      <div class="composer-note"><span id="conversation-hint">You can ask a follow-up question and continue this conversation.</span><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span></div>
 
       <section class="suggestions" id="suggestions" aria-label="Example questions">
         <div class="suggestions-heading"><span>NOT SURE WHERE TO START?</span><span class="fine-line"></span></div>
@@ -103,14 +103,23 @@
 
   <dialog id="sources-dialog" aria-labelledby="sources-title">
     <div class="dialog-top"><span class="eyebrow">THE REFERENCE SHELF</span><button class="icon-button close-dialog" aria-label="Close source library"><svg class="icon"><use href="#i-close"/></svg></button></div>
-    <h2 id="sources-title">Source library</h2><p class="dialog-description">The Code of Criminal Procedure, 1898.<br>Four original PDFs from the Bangladesh Code archive.</p>
+    <h2 id="sources-title">Source library</h2><p class="dialog-description">Archived legal sources used by this assistant.</p>
     <div class="library-list">
     {% for part, description, pages, indexed in [(1, 'Contents & index', 38, false), (2, 'Statutory provisions', 123, true), (3, 'Statutory provisions, continued', 120, true), (4, 'Schedules & forms', 160, false)] %}
       <a class="library-item" href="{{ url_for('source_pdf', filename='crpc-1898-part-' ~ part ~ '.pdf') }}" target="_blank" rel="noopener"><span class="pdf-icon">PDF</span><span class="library-name"><strong>CrPC · Part {{ part }}</strong><small>{{ description }} · {{ pages }} pages</small></span><span class="source-state {{ 'indexed' if indexed else '' }}">{{ 'Used for answers' if indexed else 'Reference only' }}</span><svg class="icon"><use href="#i-external"/></svg></a>
     {% endfor %}
-    </div><p class="library-note">Answers currently search the statutory text in Parts 2 and 3. Schedules, other Acts and recent amendments are not covered.</p>
+      <a class="library-item" href="{{ url_for('source_pdf', filename='evidence-act-1872.pdf') }}" target="_blank" rel="noopener">
+        <span class="pdf-icon">PDF</span>
+        <span class="library-name">
+          <strong>Evidence Act, 1872</strong>
+          <small>Statutory provisions · 92 pages</small>
+        </span>
+        <span class="source-state indexed">Used for answers</span>
+        <svg class="icon"><use href="#i-external"/></svg>
+      </a>
+    </div><p class="library-note">Answers search CrPC Parts 2 and 3 together with the Evidence Act, 1872. CrPC Parts 1 and 4 are reference-only. Current amendments are not verified.</p>
   </dialog>
-  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-top"><span class="eyebrow">A LITTLE CONTEXT</span><button class="icon-button close-dialog" aria-label="Close about this assistant"><svg class="icon"><use href="#i-close"/></svg></button></div><h2 id="about-title">Clarity starts with a source.</h2><p class="dialog-description">This assistant helps you explore Bangladesh criminal procedure in plain language.</p><ol class="about-steps"><li><strong>Ask in your own words.</strong><p>You can continue with follow-up questions inside the same saved conversation.</p></li><li><strong>Read the explanation.</strong><p>Legal answers use the archived text. If details or evidence are missing, the assistant should ask or say so.</p></li><li><strong>Explore the reference.</strong><p>Expand a source to read the excerpt, or open the original PDF at the cited page.</p></li></ol><div class="about-limit">The archive is not verified current law. Answers can contain mistakes; references help you check them. This is legal information, not legal advice.</div></dialog>
+  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-top"><span class="eyebrow">A LITTLE CONTEXT</span><button class="icon-button close-dialog" aria-label="Close about this assistant"><svg class="icon"><use href="#i-close"/></svg></button></div><h2 id="about-title">Clarity starts with a source.</h2><p class="dialog-description">This assistant helps you explore Bangladesh criminal procedure in plain language.</p><ol class="about-steps"><li><strong>Ask in your own words.</strong><p>You can continue with follow-up questions inside the same saved conversation.</p></li><li><strong>Read the explanation.</strong><p>Legal answers use the archived text. If details or evidence are missing, the assistant should ask or say so.</p></li><li><strong>Explore the reference.</strong><p>Expand a source to read the excerpt, or open the original PDF at the cited page.</p></li></ol><div class="about-limit">The archive is not verified current law. Answers can contain mistakes; references help you check them. This is legal information, not legal advice.</div><div class="about-developer"><span class="eyebrow">PROJECT</span><p>Built for the ML Engineer Entry Assessment. <a href="https://github.com/nahid2003131/ml-engineer-entry-assessment" target="_blank" rel="noopener">View the developer repository ↗</a></p></div></dialog>
   <div class="sr-only" id="announcement" aria-live="polite"></div>
   <noscript><p class="noscript">Enable JavaScript to use this workspace, or <a href="{{ url_for('source_pdf', filename='crpc-1898-part-2.pdf') }}">open the source PDF</a>.</p></noscript>
 </body>
