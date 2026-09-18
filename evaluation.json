@@ -1,11 +1,11 @@
 {
-  "dataset_version": "0.3",
-  "status": "Revised development dataset; version 0.3 has not been run or scored.",
+  "dataset_version": "0.4",
+  "status": "Prepared for a fresh grounded evaluation against the expanded multi-source corpus. Version 0.4 changes corpus/version metadata only; no v0.4 performance result is included in this file.",
   "created_on": "2026-09-17",
-  "purpose": "Initial development evaluation for the English CrPC assistant. These 20 cases are a starter set, not a comprehensive or held-out legal benchmark.",
+  "purpose": "Development evaluation for the English-language Bangladesh criminal-procedure assistant. The 20 gold cases remain CrPC-focused; the active retrieval corpus now also includes the Evidence Act, 1872. This is a starter development set, not a comprehensive or held-out legal benchmark.",
   "source_edition": {
-    "id": "crpc-full-archive-eval-v0.3",
-    "description": "Downloaded English Bangladesh Code archive. The source URL contains 2021-11-23; this is an asset-path date, not a certified amendment cutoff.",
+    "id": "crpc-full-archive-eval-v0.4",
+    "description": "Gold-answer provenance remains the downloaded English Bangladesh Code CrPC archive. The source URL contains 2021-11-23; this is an asset-path date, not a certified amendment cutoff. Runtime retrieval is now multi-source and also includes the Evidence Act, 1872.",
     "file": "documents/crpc-1898-part-2.pdf",
     "sha256": "691ae36aa388b46396c7c51e344beb2b162c31d9c36ededa8c34c70467bc8ff0",
     "prepared_text": "documents/sample.txt",
@@ -27,11 +27,11 @@
     ],
     "amendment_cutoff": null,
     "excluded_from_substantive_answers": [
-      "Verified current amendments absent from the indexed archive",
-      "Schedule/form content not indexed",
-      "Other retained Acts not yet indexed"
+      "Verified current CrPC amendments absent from the indexed archive",
+      "Schedule/form content not indexed for retrieval",
+      "The Evidence Act is indexed as a related law, but this evaluation's gold answers remain CrPC-focused"
     ],
-    "scope_note": "Gold answers are checked against the cited original PDF pages, not limited to sample.txt. Runtime retrieval uses 515 archived section/range records from CrPC Parts 2 and 3; the sample hash is retained for provenance. Historical footnote evidence is in the source PDF but not currently sent by retrieval."
+    "scope_note": "Gold answers are checked against the cited original CrPC PDF pages, not limited to sample.txt. Runtime retrieval now uses 697 active section/range records: 515 from CrPC Parts 2 and 3 and 182 from the Evidence Act, 1872. The sample hash is retained for CrPC evaluation provenance. CrPC Parts 1 and 4 are validated source documents but are not indexed for retrieval. Historical footnote evidence remains part of the source material; this development set does not treat the expanded corpus as verified current consolidated law."
   },
   "model_instruction": "Answer in English from the specified source edition and supplied evidence. Attribute legal statements to that edition; do not imply it is verified current law. Ask for clarification when essential details are missing. If evidence is insufficient, explain the gap without inventing facts or citations. Include section citations and source excerpts when answering from retrieved text. Provide legal information, not personalized legal advice.",
   "evaluation_rules": [
@@ -47,13 +47,13 @@
     "Question prompts must not reveal section numbers, subsection identifiers, statute numbers or evaluation terms such as archive, corpus or prepared sample. Legal references belong in answers and citation metadata."
   ],
   "review": {
-    "method": "Version 0.3 prompt/rubric consistency review. Q20 notification evidence checked on original PDF page 99 (printed 137), with surrounding pages read for context. Other gold snippets retained; Q08 corpus-coverage wording corrected. This revision is not a new performance result.",
+    "method": "Version 0.4 metadata review after expanding the active retrieval corpus from 515 CrPC records to 697 total records by adding 182 Evidence Act records. The 20 prompts, expected behaviors, reference answers, required points, forbidden claims and gold evidence are unchanged from version 0.3.",
     "official_cross_check_urls": [
       "https://bdlaws.minlaw.gov.bd/act-print-75/section-print-20869.html",
       "https://bdlaws.minlaw.gov.bd/act-print-1640/section-print-58317.html"
     ],
     "online_sources_in_test_context": false,
-    "note": "The official site was consulted for a cross-check and to identify amendment coverage gaps. Online text has not been added to the frozen corpus. Q18-Q19 test evidence limits, not knowledge of the missing amendments."
+    "note": "The official site was previously consulted for cross-checking and amendment-gap identification. Online text is not injected into evaluation requests. Adding the Evidence Act does not resolve the known missing-current-CrPC-amendment limitations tested by Q18-Q19."
   },
   "cases": [
     {
@@ -85,7 +85,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q02",
@@ -119,7 +119,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q03",
@@ -152,7 +152,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q04",
@@ -186,7 +186,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q05",
@@ -218,7 +218,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q06",
@@ -252,7 +252,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q07",
@@ -283,7 +283,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q08",
@@ -332,7 +332,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q09",
@@ -367,7 +367,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q10",
@@ -401,7 +401,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q11",
@@ -434,7 +434,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q12",
@@ -468,7 +468,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q13",
@@ -501,7 +501,7 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q14",
@@ -518,7 +518,7 @@
         "Arrest is definitely lawful or unlawful on the information given"
       ],
       "sources": [],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q15",
@@ -535,7 +535,7 @@
         "Invent a fee or application procedure"
       ],
       "sources": [],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q16",
@@ -551,7 +551,7 @@
         "A fixed fee or range supposedly established by the cited CrPC provisions"
       ],
       "sources": [],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q17",
@@ -569,7 +569,7 @@
       ],
       "sources": [],
       "note": "Synthetic case identifier used only for testing; no real case is asserted.",
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q18",
@@ -587,7 +587,7 @@
         "An invented replacement limit"
       ],
       "sources": [],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q19",
@@ -606,7 +606,7 @@
         "A numerical deadline presented as supported by the prepared corpus"
       ],
       "sources": [],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     },
     {
       "id": "Q20",
@@ -640,60 +640,48 @@
           ]
         }
       ],
-      "source_edition": "crpc-full-archive-eval-v0.3"
+      "source_edition": "crpc-full-archive-eval-v0.4"
     }
   ],
-  "revision_note": "Seven prompts clarified/replaced and one outdated reference explanation corrected. Valid difficult, ambiguous, unsupported and current-law cases remain. Historical scores belong to version 0.2; do not present a changed-dataset score as a controlled improvement.",
+  "revision_note": "Version 0.4 is a metadata/corpus-scope refresh after the incremental addition of the Evidence Act, 1872. All 20 questions, expected behaviors, reference answers, required points, forbidden claims and gold source evidence are unchanged from version 0.3. A fresh run is required for any v0.4 performance result.",
   "revision": {
-    "previous_dataset": "evaluation-v0.2.json",
-    "previous_sha256": "92f6cfdeb62f01e3730f8194dfe9e2babdf203a6c9feec959d9e351666127ba7",
+    "previous_dataset_version": "0.3",
+    "previous_sha256": "fddd0fdde68fec901573671bcb7dc63edce83a0853a0f9211a14e1025556bdc1",
     "changes": [
       {
-        "id": "Q02",
-        "previous_question": "Does the criminal procedure law apply across Bangladesh, and what happens if another law sets a special procedure?",
-        "question": "Does the same criminal procedure law cover all of Bangladesh? What if a special law provides a different procedure?",
-        "reason": "Split a compound prompt into two plain-language questions; same legal expectation."
+        "type": "metadata",
+        "reason": "Updated dataset and source-edition identifiers from 0.3 to 0.4."
       },
       {
-        "id": "Q03",
-        "previous_question": "When the police finish investigating a criminal case, who should they send their report to?",
-        "question": "After an investigation ends, which police officer sends the report, who receives it, and is there a prescribed form?",
-        "reason": "Ask explicitly for the officer and prescribed form already required by the rubric."
+        "type": "corpus_scope",
+        "reason": "Updated runtime retrieval metadata from 515 CrPC records to 697 active records: 515 CrPC plus 182 Evidence Act records."
       },
       {
-        "id": "Q07",
-        "previous_question": "If the police report says I was released on a bond, what should the court do about that bond?",
-        "question": "The police have finished investigating and sent their report to the magistrate. It says I was released on a bond. What happens to that bond now?",
-        "reason": "Specify the completed-investigation report stage to distinguish it from general bail or bond execution."
+        "type": "scope_note",
+        "reason": "Recorded the Evidence Act as an indexed related law while preserving the fact that the 20 gold evaluation cases remain CrPC-focused."
       },
       {
-        "id": "Q13",
-        "previous_question": "Were the rules about sending supporting papers and continuing an investigation added later? Which law added them?",
-        "question": "Which law introduced the rules about attaching prosecution documents to a police report and sending another report after further investigation?",
-        "reason": "Identify the police report and document rules more clearly; retain the historical-footnote challenge."
-      },
-      {
-        "id": "Q14",
-        "previous_question": "Can they arrest me?",
-        "question": "They said they can arrest me. Is that allowed?",
-        "reason": "Use a natural user scenario while retaining missing actor and circumstances; still requires clarification."
-      },
-      {
-        "id": "Q15",
-        "previous_question": "Can I get a copy?",
-        "question": "Can I get a copy of a document from my criminal case?",
-        "reason": "Identify the criminal-case context but leave document and role unspecified; still requires clarification."
-      },
-      {
-        "id": "Q20",
-        "previous_question": "What must the police do when someone dies in suspicious circumstances? Please explain the whole procedure.",
-        "question": "When police receive a report of a suspected unlawful killing, which magistrate should they notify and how soon?",
-        "reason": "Replace the obsolete incomplete-sample question with a narrower source-supported notification question; changes scope and expected behavior, not directly comparable."
-      },
-      {
-        "id": "Q08",
-        "reason": "Remove the obsolete claim that section 170 is absent; preserve the applicability condition and case-specific uncertainty. Question and required points unchanged."
+        "type": "test_cases",
+        "reason": "No question, expected behavior, rubric point, forbidden claim or gold evidence was changed."
       }
     ]
+  },
+  "active_retrieval_corpus": {
+    "record_count": 697,
+    "validated_pdf_count": 5,
+    "indexed_laws": [
+      {
+        "law": "Code of Criminal Procedure, 1898",
+        "records": 515,
+        "source_version": "crpc-old-bdlaws-archive-2026-09-17-v1"
+      },
+      {
+        "law": "Evidence Act, 1872",
+        "records": 182,
+        "source_version": "evidence-act-old-bdlaws-2023-12-03-v1"
+      }
+    ],
+    "indexing_note": "CrPC Parts 2 and 3 and the Evidence Act statutory body are indexed. CrPC Part 1 (contents/index) and Part 4 (Schedule II/forms) are validated but excluded from retrieval indexing.",
+    "evaluation_scope": "The current 20-case gold dataset remains focused on CrPC sections 1, 173 and 174; Evidence Act retrieval is not directly scored by these cases."
   }
 }

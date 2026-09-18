@@ -231,6 +231,8 @@ def main():
     }
     if args.mode == "grounded" and not args.summarize:
         import psycopg
+
+        source_versions = backend.rag.embed.active_source_versions()
         configuration.update({"rag_sha256": sha256(ROOT / "rag.py"),
                               "routing_instruction": backend.ROUTING_INSTRUCTION,
                               "routing_schema": backend.ROUTING_SCHEMA,
@@ -239,13 +241,26 @@ def main():
                               "retrieval_top_k": 5,
                               "evidence_character_budget": backend.rag.MAX_EVIDENCE_CHARACTERS})
         with psycopg.connect(backend.app.config["DATABASE_URL"], connect_timeout=15) as conn:
-            rows = conn.execute("SELECT section_ref,content_sha256 FROM legal_sections WHERE source_version=%s ORDER BY section_ref",
-                                (backend.rag.embed.SOURCE_VERSION,)).fetchall()
-            configuration["corpus"] = {"source_version": backend.rag.embed.SOURCE_VERSION,
-                "section_count": len(rows), "section_manifest_sha256": hashlib.sha256(json.dumps(rows).encode()).hexdigest(),
-                "source_files": conn.execute("SELECT source_file,source_sha256 FROM source_documents WHERE source_version=%s ORDER BY source_file",
-                                              (backend.rag.embed.SOURCE_VERSION,)).fetchall()}
-        # Use JSON-native types so configuration equality also works after resume.
+            rows = conn.execute(
+                """SELECT source_version,section_ref,content_sha256
+                   FROM legal_sections
+                   WHERE source_version = ANY(%s)
+                   ORDER BY source_version,section_ref""",
+                (source_versions,),
+            ).fetchall()
+            source_files = conn.execute(
+                """SELECT source_version,source_file,source_sha256
+                   FROM source_documents
+                   WHERE source_version = ANY(%s)
+                   ORDER BY source_version,source_file""",
+                (source_versions,),
+            ).fetchall()
+            configuration["corpus"] = {
+                "source_versions": source_versions,
+                "section_count": len(rows),
+                "section_manifest_sha256": hashlib.sha256(json.dumps(rows).encode()).hexdigest(),
+                "source_files": source_files,
+            }
         configuration = json.loads(json.dumps(configuration))
     if path.exists():
         if not (args.resume or args.summarize):

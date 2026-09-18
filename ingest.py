@@ -1,25 +1,26 @@
-"""Validate the archived CrPC PDFs and load section records into PostgreSQL.
+"""Load legal PDFs from documents/sources.json into PostgreSQL incrementally.
 
-Run a read-only check:
-    .venv/bin/python ingest.py --check
+The manifest defines each source, checksum, page range, section range, parser
+profile, and optional validation rules. The loader extracts section-aware legal
+records, compares them with PostgreSQL, and writes only added, changed, or
+removed records so unchanged embeddings remain reusable.
 
-Load the validated records after setting DATABASE_URL:
-    .venv/bin/python ingest.py --load
-
-This deliberately does not create embeddings. It stores one record per section
-or explicit section range found in the statutory body (Parts 2 and 3).
+Modes:
+    --check  Validate configured PDFs and extraction without database access.
+    --diff   Compare prepared records with PostgreSQL without writing.
+    --load   Apply the detected incremental document and section updates.
 """
-
 from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
 import subprocess
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from collections import Counter
 from pathlib import Path
 
@@ -28,8 +29,7 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
 DOCUMENTS = ROOT / "documents"
-SOURCE_VERSION = "crpc-old-bdlaws-archive-2026-09-17-v1"
-LAW_CODE = "Code of Criminal Procedure, 1898"
+SOURCE_MANIFEST = DOCUMENTS / "sources.json"
 
 
 @dataclass(frozen=True)
@@ -39,58 +39,83 @@ class Source:
     pages: int
     printed_page_offset: int
     role: str
+    source_version: str
+    law_code: str
+    body_pdf_start: int = 1
     section_min: int | None = None
     section_max: int | None = None
+    parser_profile: str = "standard_statute"
+    validation_profile: str | None = None
+    expected_section_count: int | None = None
+    required_sections: tuple[str, ...] = ()
+    layout: dict = field(default_factory=dict)
 
 
-SOURCES = (
-    Source(
-        "crpc-1898-part-1.pdf",
-        "d343152757946aec345a81c6c92c254338e4066f0acd205b8b8574555914218c",
-        38,
-        0,
-        "contents_index",
-    ),
-    Source(
-        "crpc-1898-part-2.pdf",
-        "691ae36aa388b46396c7c51e344beb2b162c31d9c36ededa8c34c70467bc8ff0",
-        123,
-        38,
-        "statutory_body",
-        1,
-        220,
-    ),
-    Source(
-        "crpc-1898-part-3.pdf",
-        "f13e13b04fb4bd9f7fc13a77897d2572a0373d9f84d78f527af5bbecfa6bb1f8",
-        120,
-        161,
-        "statutory_body",
-        221,
-        565,
-    ),
-    Source(
-        "crpc-1898-part-4.pdf",
-        "71902dd0f7746298e3c950a2fb407d675f4a1adbf84ecc8bc8b541692972b627",
-        160,
-        281,
-        "schedules_forms",
-    ),
-)
+def load_sources() -> tuple[Source, ...]:
+    require(SOURCE_MANIFEST.is_file(), f"Missing source manifest: {SOURCE_MANIFEST}")
+    try:
+        payload = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {SOURCE_MANIFEST.name}: {exc}") from exc
 
-# The source PDFs use a few custom-font code points. The mapping preserves their
-# visible meaning while making the extracted text valid, searchable Unicode.
+    raw_sources = payload.get("sources")
+    require(isinstance(raw_sources, list) and raw_sources, "sources.json must contain a non-empty 'sources' list")
+    sources = []
+    filenames = set()
+    for index, raw in enumerate(raw_sources, 1):
+        require(isinstance(raw, dict), f"Source entry {index} must be an object")
+        required = ("filename", "sha256", "pages", "printed_page_offset", "role", "source_version", "law_code")
+        missing = [name for name in required if name not in raw]
+        require(not missing, f"Source entry {index} is missing: {', '.join(missing)}")
+        require(raw["filename"] not in filenames, f"Duplicate source filename: {raw['filename']}")
+        filenames.add(raw["filename"])
+        require(re.fullmatch(r"[0-9a-f]{64}", raw["sha256"]) is not None,
+                f"Invalid SHA-256 for {raw['filename']}")
+        require(isinstance(raw["pages"], int) and raw["pages"] > 0,
+                f"Invalid page count for {raw['filename']}")
+
+        role = raw["role"]
+        parser_profile = raw.get("parser_profile", "standard_statute")
+        require(parser_profile in {"none", "crpc", "standard_statute"},
+                f"Unsupported parser_profile for {raw['filename']}: {parser_profile}")
+        if role == "statutory_body":
+            require(raw.get("section_min") is not None and raw.get("section_max") is not None,
+                    f"Statutory source needs section_min/section_max: {raw['filename']}")
+            require(parser_profile != "none",
+                    f"Statutory source needs a parser profile: {raw['filename']}")
+
+        sources.append(Source(
+            filename=raw["filename"],
+            sha256=raw["sha256"],
+            pages=raw["pages"],
+            printed_page_offset=raw["printed_page_offset"],
+            role=role,
+            source_version=raw["source_version"],
+            law_code=raw["law_code"],
+            body_pdf_start=raw.get("body_pdf_start", 1),
+            section_min=raw.get("section_min"),
+            section_max=raw.get("section_max"),
+            parser_profile=parser_profile,
+            validation_profile=raw.get("validation_profile"),
+            expected_section_count=raw.get("expected_section_count"),
+            required_sections=tuple(raw.get("required_sections", [])),
+            layout=dict(raw.get("layout", {})),
+        ))
+    return tuple(sources)
+
+
 FONT_CODES = str.maketrans(
     {
         "\uf020": " ",
         "\uf02d": "-",
         "\uf0a7": "*",
+        "\uf0be": "-",
         "\uf0ac": "←",
         "\uf02a": "*",
     }
 )
 
-SECTION_ID = r"\d{1,3}[A-Z]{0,2}"
+SECTION_ID = r"\d{1,4}[A-Z]{0,2}"
 SINGLE_START = re.compile(
     rf"^(?P<prefix>[^\n]{{0,100}}?)\b(?P<section>{SECTION_ID})\.\s*"
     rf"(?=(?:\(?\d|\[|\]|[A-Z]))"
@@ -186,9 +211,8 @@ def find_page_starts(page: str, source: Source) -> list[tuple[int, str]]:
             match = SINGLE_START.search(line)
             if match:
                 prefix = match.group("prefix")
-                # References inside prose and footnotes often say "section 173" or
-                # have an earlier number. Neither marks a new top-level provision.
-                if not re.search(r"\bsections?\b", prefix, re.I) and not re.search(r"\d", prefix):
+                footnote_prefix = bool(re.fullmatch(r"\s*\d+\[\s*", prefix))
+                if not re.search(r"\bsections?\b", prefix, re.I) and (footnote_prefix or not re.search(r"\d", prefix)):
                     starts.append((offset, match.group("section")))
         offset += len(line_with_end)
 
@@ -200,8 +224,6 @@ def find_page_starts(page: str, source: Source) -> list[tuple[int, str]]:
     return valid
 
 
-# Body pages use alternating margins. Rules below are specific to these checked
-# archive hashes, not to evaluation questions or expected answers.
 PARSER_VERSION = "layout-v2"
 FOOTNOTE_REF = r"\[fn:\d+:(?:\d+|\*)\]"
 
@@ -217,7 +239,6 @@ def word_lines(words: list[dict], page: int) -> list[str]:
         text, previous = "", None
         for word in sorted(row, key=lambda w: w["xMin"]):
             value = word["t"]
-            # Only small superscript numbers, not omitted-text asterisks.
             if value.isdigit() and word["yMax"] - word["yMin"] < 7:
                 value = f"[fn:{page}:{value}]"
             gap = word["xMin"] - previous["xMax"] if previous else 0
@@ -251,7 +272,6 @@ def table_lines(words: list[dict], table, page: int) -> list[str]:
             span = f", rows {row}-{end_row}" if end_row > row else ""
             cells.append(f"column {col}{span}: {value}")
         if len(row_cells) == 1 and row_cells[0][0] == table.bbox[0] and row_cells[0][2] == table.bbox[2]:
-            # The subsection (2) paragraph between the two tables spans all columns.
             lines.append(value)
         else:
             lines.append(f"Table row {row} | " + " | ".join(cells))
@@ -281,34 +301,57 @@ def layout_pages(source: Source) -> list[dict]:
                 if value:
                     words.append(dict(t=value, id=i, **{k: float(v) for k, v in node.attrib.items()}))
             printed = number + source.printed_page_offset
-            header = [w for w in words if w["yMin"] < 120]
-            require(str(printed) in [w["t"] for w in header],
-                    f"Wrong printed page label: {source.filename}, PDF {number}")
-            rules = [line["top"] for line in page.lines
-                     if abs(line["x0"] - 126) < 1 and 140 < line["width"] < 150
-                     and line["height"] < 1 and line["top"] > 120]
+            if source.parser_profile == "crpc":
+                header_bottom = 120
+            else:
+                header_bottom = float(source.layout.get("header_bottom", 145))
+            header = [w for w in words if w["yMin"] < header_bottom]
+            if source.layout.get("validate_printed_page_label", True):
+                require(str(printed) in [w["t"] for w in header],
+                        f"Wrong printed page label: {source.filename}, PDF {number}")
+            if source.parser_profile == "crpc":
+                rules = [line["top"] for line in page.lines
+                         if abs(line["x0"] - 126) < 1 and 140 < line["width"] < 150
+                         and line["height"] < 1 and line["top"] > 120]
+            else:
+                detector = source.layout.get("footnote_detector", "rect")
+                candidates = page.rects if detector == "rect" else page.lines if detector == "line" else []
+                x0 = float(source.layout.get("footnote_x0", 122.64))
+                tolerance = float(source.layout.get("footnote_x0_tolerance", 2))
+                width_min = float(source.layout.get("footnote_width_min", 135))
+                width_max = float(source.layout.get("footnote_width_max", 145))
+                min_top = float(source.layout.get("footnote_min_top", 500))
+                rules = [item["top"] for item in candidates
+                         if abs(item["x0"] - x0) < tolerance
+                         and width_min < item["width"] < width_max
+                         and item["height"] < 1 and item["top"] > min_top]
             require(len(rules) <= 1, f"Ambiguous footnote separator on PDF page {number}")
-            foot_top = rules[0] if rules else 800
-            # Printed page 195 has notes beneath its table without a separator.
+            foot_top = rules[0] if rules else float(source.layout.get("default_foot_top", 800))
             if source.filename == "crpc-1898-part-3.pdf" and number == 34:
                 require(not rules, "Unexpected footnote rule on printed page 195")
                 foot_top = 515
             notes = [w for w in words if w["yMin"] >= foot_top]
-            main = [w for w in words if 120 <= w["yMin"] < foot_top]
-            # Tiny standalone dot is a PDF layout artifact, retained as metadata.
+            main = [w for w in words if header_bottom <= w["yMin"] < foot_top]
             artifacts = [w for w in main if w["t"] == "." and w["yMax"] - w["yMin"] < 2]
             main = [w for w in main if w not in artifacts]
-            left, right = (120, 419) if printed % 2 else (195, 500)
+            if source.parser_profile == "crpc":
+                left, right = (120, 419) if printed % 2 else (195, 500)
+            else:
+                if printed % 2:
+                    left = float(source.layout.get("odd_body_left", 120))
+                    right = float(source.layout.get("odd_body_right", 405))
+                else:
+                    left = float(source.layout.get("even_body_left", 190))
+                    right = float(source.layout.get("even_body_right", 480))
             rects = [r for r in page.rects if r["top"] > 120 and r["width"] > 10 and r["height"] < 1]
             tables = []
-            if rects:
+            if rects and source.parser_profile == "crpc":
                 tables = page.find_tables({"explicit_vertical_lines": [
                     min(r["x0"] for r in rects), max(r["x1"] for r in rects)]})
                 require(source.filename == "crpc-1898-part-3.pdf" and 30 <= number <= 35
                         and len(tables) == 1, f"Unreviewed table layout: {source.filename}, PDF {number}")
             table_words = [w for w in main if any(in_box(w, t.bbox) for t in tables)]
             ordinary = [w for w in main if w not in table_words]
-            # On the opening page, title/preamble spans the usual body/margin boundary.
             preamble = [w for w in ordinary if source.filename == "crpc-1898-part-2.pdf"
                         and number == 1 and w["yMin"] < 310]
             ordinary = [w for w in ordinary if w not in preamble]
@@ -319,7 +362,6 @@ def layout_pages(source: Source) -> list[dict]:
                     f"Word conservation failed: {source.filename}, PDF {number}")
 
             if source.filename == "crpc-1898-part-2.pdf" and number == 21:
-                # Section 32 is an unruled, two-column table: court then sentence.
                 lines = word_lines([w for w in body if w["yMin"] < 155], number)
                 for top, bottom in ((155, 251), (251, 340), (340, foot_top)):
                     court = [w for w in body if top <= w["yMin"] < bottom and w["xMin"] < 290]
@@ -385,7 +427,7 @@ def build_sections(source: Source, pages: list[dict]) -> list[dict]:
         require(len(content) >= 20, f"Section {record['section_ref']} has too little text")
         pdf_pages = [f["pdf_page"] for f in record["fragments"]]
         record.update({
-            "source_version": SOURCE_VERSION, "law_code": LAW_CODE,
+            "source_version": source.source_version, "law_code": source.law_code,
             "source_file": source.filename, "source_sha256": source.sha256,
             "pdf_pages": pdf_pages,
             "printed_pages": [source.printed_page_offset + p for p in pdf_pages],
@@ -394,45 +436,50 @@ def build_sections(source: Source, pages: list[dict]) -> list[dict]:
     return records
 
 
-def prepare() -> tuple[list[dict], list[dict]]:
+def prepare(sources: tuple[Source, ...]) -> tuple[list[dict], list[dict]]:
     require(shutil.which("pdftotext") is not None, "Poppler pdftotext is required")
     documents = []
     sections = []
-    counts = {}
-    for source in SOURCES:
+
+    for source in sources:
         extract_pages(source)
         pages = layout_pages(source) if source.role == "statutory_body" else []
-        extracted = build_sections(source, pages) if pages else []
-        documents.append(
-            {
-                "source_version": SOURCE_VERSION,
-                "law_code": LAW_CODE,
-                "source_file": source.filename,
-                "source_sha256": source.sha256,
-                "pdf_page_count": source.pages,
-                "role": source.role,
-                "parser_version": PARSER_VERSION,
-                "pages": pages,
-                "ingestion_status": "indexed" if source.role == "statutory_body" else "validated_excluded",
-            }
-        )
-        if source.role == "statutory_body":
-            sections.extend(extracted)
-            counts[source.filename] = len(extracted)
+        body_pages = pages[source.body_pdf_start - 1:] if pages else []
+        extracted = build_sections(source, body_pages) if body_pages else []
 
-    require(counts == {"crpc-1898-part-2.pdf": 230, "crpc-1898-part-3.pdf": 285},
-            f"Section boundary count changed: {counts}")
-    require(len(sections) == 515, "Expected 515 statutory section/range records")
-    refs = [record["section_ref"] for record in sections]
-    require(len(refs) == len(set(refs)), "Duplicate section references detected")
-    for required_ref in ("1", "2", "126A", "173", "205D", "206-220", "221", "251-259", "266-336",
-                         "488-490", "565"):
-        require(required_ref in refs, f"Missing known section boundary: {required_ref}")
-    validate_records(documents, sections)
+        if source.role == "statutory_body":
+            if source.expected_section_count is not None:
+                require(len(extracted) == source.expected_section_count,
+                        f"Section boundary count changed for {source.filename}: {len(extracted)}")
+            refs = {record["section_ref"] for record in extracted}
+            for required_ref in source.required_sections:
+                require(required_ref in refs,
+                        f"Missing known section boundary in {source.filename}: {required_ref}")
+            sections.extend(extracted)
+
+        documents.append({
+            "source_version": source.source_version,
+            "law_code": source.law_code,
+            "source_file": source.filename,
+            "source_sha256": source.sha256,
+            "pdf_page_count": source.pages,
+            "role": source.role,
+            "parser_version": PARSER_VERSION,
+            "pages": pages,
+            "ingestion_status": "indexed" if source.role == "statutory_body" else "validated_excluded",
+        })
+
+    keys = [(record["source_version"], record["section_ref"]) for record in sections]
+    require(len(keys) == len(set(keys)), "Duplicate section references detected within a source version")
+
+    crpc_versions = {source.source_version for source in sources if source.validation_profile == "crpc"}
+    if crpc_versions:
+        crpc_sections = [record for record in sections if record["source_version"] in crpc_versions]
+        validate_crpc_records(documents, crpc_sections)
     return documents, sections
 
 
-def validate_records(documents: list[dict], sections: list[dict]) -> None:
+def validate_crpc_records(documents: list[dict], sections: list[dict]) -> None:
     """Regression checks for observed extraction failures, before any DB write."""
     by_ref = {record["section_ref"]: record for record in sections}
     for record in sections:
@@ -467,12 +514,161 @@ def validate_records(documents: list[dict], sections: list[dict]) -> None:
             "Footnote leaked into statutory body")
 
 
+def compare_database(database_url: str, documents: list[dict], sections: list[dict]) -> dict:
+    """Compare prepared source records with the current database without writing anything."""
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ImportError as exc:
+        raise RuntimeError("Install requirements.txt before using --diff or --load") from exc
+
+    stats = {
+        "documents": {"added": [], "changed": [], "unchanged": []},
+        "sections": {
+            "added": [], "content_changed": [], "metadata_changed": [],
+            "removed": [], "unchanged": [],
+        },
+    }
+    managed_versions = sorted({document["source_version"] for document in documents})
+
+    with psycopg.connect(
+        database_url,
+        connect_timeout=15,
+        options="-c statement_timeout=60000",
+        row_factory=dict_row,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema=current_schema() AND table_name='source_documents'
+                ) AS source_documents,
+                EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema=current_schema() AND table_name='legal_sections'
+                ) AS legal_sections
+                """
+            )
+            tables = cursor.fetchone()
+            current_documents = {}
+            current_sections = {}
+
+            if tables["source_documents"]:
+                current_documents = {
+                    (row["source_version"], row["source_file"]): row
+                    for row in cursor.execute(
+                        """
+                        SELECT source_version, law_code, source_file, source_sha256,
+                               pdf_page_count, role, ingestion_status, parser_version, pages
+                        FROM source_documents WHERE source_version = ANY(%s)
+                        """,
+                        (managed_versions,),
+                    ).fetchall()
+                }
+
+            if tables["legal_sections"]:
+                current_sections = {
+                    (row["source_version"], row["section_ref"]): row
+                    for row in cursor.execute(
+                        """
+                        SELECT source_version, law_code, source_file, source_sha256, section_ref,
+                               pdf_pages, printed_pages, content, content_sha256, fragments
+                        FROM legal_sections WHERE source_version = ANY(%s)
+                        """,
+                        (managed_versions,),
+                    ).fetchall()
+                }
+
+    def document_signature(row: dict) -> tuple:
+        return (
+            row["law_code"], row["source_sha256"], row["pdf_page_count"], row["role"],
+            row["ingestion_status"], row.get("parser_version"), row.get("pages") or [],
+        )
+
+    def section_metadata_signature(row: dict) -> tuple:
+        return (
+            row["law_code"], row["source_file"], row["source_sha256"],
+            list(row["pdf_pages"]), list(row["printed_pages"]), row.get("fragments") or [],
+        )
+
+    for document in documents:
+        key = (document["source_version"], document["source_file"])
+        existing = current_documents.get(key)
+        label = document["source_file"]
+        if existing is None:
+            stats["documents"]["added"].append(label)
+        elif document_signature(existing) != document_signature(document):
+            stats["documents"]["changed"].append(label)
+        else:
+            stats["documents"]["unchanged"].append(label)
+
+    prepared_sections = {(row["source_version"], row["section_ref"]): row for row in sections}
+    managed_documents = {
+        (document["source_version"], document["source_file"])
+        for document in documents if document["role"] == "statutory_body"
+    }
+    for key, section in prepared_sections.items():
+        existing = current_sections.get(key)
+        label = f'{section["law_code"]} §{section["section_ref"]}'
+        if existing is None:
+            stats["sections"]["added"].append(label)
+        elif existing["content_sha256"] != section["content_sha256"]:
+            stats["sections"]["content_changed"].append(label)
+        elif section_metadata_signature(existing) != section_metadata_signature(section):
+            stats["sections"]["metadata_changed"].append(label)
+        else:
+            stats["sections"]["unchanged"].append(label)
+
+    for key, row in current_sections.items():
+        document_key = (row["source_version"], row["source_file"])
+        if document_key in managed_documents and key not in prepared_sections:
+            stats["sections"]["removed"].append(f'{row["law_code"]} §{row["section_ref"]}')
+    stats["sections"]["removed"].sort()
+    return stats
+
+def print_database_diff(stats: dict) -> None:
+    documents = stats["documents"]
+    sections = stats["sections"]
+    refresh = len(sections["added"]) + len(sections["content_changed"])
+    print("Database comparison:")
+    print(
+        "  Documents: "
+        f"added={len(documents['added'])}, changed={len(documents['changed'])}, "
+        f"unchanged={len(documents['unchanged'])}."
+    )
+    print(
+        "  Sections: "
+        f"added={len(sections['added'])}, content_changed={len(sections['content_changed'])}, "
+        f"metadata_changed={len(sections['metadata_changed'])}, removed={len(sections['removed'])}, "
+        f"unchanged={len(sections['unchanged'])}."
+    )
+    print(f"  Embeddings requiring refresh after load: {refresh}.")
+
+    for label in ("added", "content_changed", "metadata_changed", "removed"):
+        refs = sections[label]
+        if refs:
+            preview = ", ".join(refs[:12])
+            suffix = f", ... (+{len(refs)-12} more)" if len(refs) > 12 else ""
+            print(f"  {label.replace('_', ' ').title()} sections: {preview}{suffix}")
+
+
 def load_database(database_url: str, documents: list[dict], sections: list[dict]) -> None:
     try:
         import psycopg
         from psycopg.types.json import Jsonb
     except ImportError as exc:
         raise RuntimeError("Install requirements.txt before using --load") from exc
+
+    managed_documents = [
+        (document["source_version"], document["source_file"])
+        for document in documents if document["role"] == "statutory_body"
+    ]
+    refs_by_document = {
+        key: [section["section_ref"] for section in sections
+              if (section["source_version"], section["source_file"]) == key]
+        for key in managed_documents
+    }
 
     with psycopg.connect(database_url, connect_timeout=15, options="-c statement_timeout=60000") as connection:
         with connection.cursor() as cursor:
@@ -508,16 +704,19 @@ def load_database(database_url: str, documents: list[dict], sections: list[dict]
                 )
                 """
             )
-            # Idempotent migration keeps the original two-table project structure.
             cursor.execute("ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS parser_version TEXT")
             cursor.execute("ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS pages JSONB NOT NULL DEFAULT '[]'")
             cursor.execute("ALTER TABLE legal_sections ADD COLUMN IF NOT EXISTS fragments JSONB NOT NULL DEFAULT '[]'")
-            # Preserve embeddings for unchanged text. Changed content hashes make
-            # old embeddings ineligible until embed.py refreshes them.
-            cursor.execute("DELETE FROM legal_sections WHERE source_version = %s AND NOT (section_ref = ANY(%s))",
-                           (SOURCE_VERSION, [s["section_ref"] for s in sections]))
-            cursor.execute("DELETE FROM source_documents WHERE source_version = %s AND NOT (source_file = ANY(%s))",
-                           (SOURCE_VERSION, [d["source_file"] for d in documents]))
+
+            for source_version, source_file in managed_documents:
+                section_refs = refs_by_document[(source_version, source_file)]
+                cursor.execute(
+                    """DELETE FROM legal_sections
+                       WHERE source_version=%s AND source_file=%s
+                       AND NOT (section_ref = ANY(%s))""",
+                    (source_version, source_file, section_refs),
+                )
+
             cursor.executemany(
                 """
                 INSERT INTO source_documents
@@ -531,6 +730,13 @@ def load_database(database_url: str, documents: list[dict], sections: list[dict]
                     pdf_page_count=EXCLUDED.pdf_page_count, role=EXCLUDED.role,
                     ingestion_status=EXCLUDED.ingestion_status,
                     parser_version=EXCLUDED.parser_version, pages=EXCLUDED.pages
+                WHERE source_documents.law_code IS DISTINCT FROM EXCLUDED.law_code
+                   OR source_documents.source_sha256 IS DISTINCT FROM EXCLUDED.source_sha256
+                   OR source_documents.pdf_page_count IS DISTINCT FROM EXCLUDED.pdf_page_count
+                   OR source_documents.role IS DISTINCT FROM EXCLUDED.role
+                   OR source_documents.ingestion_status IS DISTINCT FROM EXCLUDED.ingestion_status
+                   OR source_documents.parser_version IS DISTINCT FROM EXCLUDED.parser_version
+                   OR source_documents.pages IS DISTINCT FROM EXCLUDED.pages
                 """,
                 [dict(d, pages=Jsonb(d["pages"])) for d in documents],
             )
@@ -548,34 +754,62 @@ def load_database(database_url: str, documents: list[dict], sections: list[dict]
                     source_sha256=EXCLUDED.source_sha256, pdf_pages=EXCLUDED.pdf_pages,
                     printed_pages=EXCLUDED.printed_pages, content=EXCLUDED.content,
                     content_sha256=EXCLUDED.content_sha256, fragments=EXCLUDED.fragments
+                WHERE legal_sections.law_code IS DISTINCT FROM EXCLUDED.law_code
+                   OR legal_sections.source_file IS DISTINCT FROM EXCLUDED.source_file
+                   OR legal_sections.source_sha256 IS DISTINCT FROM EXCLUDED.source_sha256
+                   OR legal_sections.pdf_pages IS DISTINCT FROM EXCLUDED.pdf_pages
+                   OR legal_sections.printed_pages IS DISTINCT FROM EXCLUDED.printed_pages
+                   OR legal_sections.content IS DISTINCT FROM EXCLUDED.content
+                   OR legal_sections.content_sha256 IS DISTINCT FROM EXCLUDED.content_sha256
+                   OR legal_sections.fragments IS DISTINCT FROM EXCLUDED.fragments
                 """,
                 [dict(s, fragments=Jsonb(s["fragments"])) for s in sections],
             )
 
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--check", action="store_true", help="validate and summarize without writing")
-    mode.add_argument("--load", action="store_true", help="validate and load PostgreSQL")
+    mode.add_argument("--check", action="store_true", help="validate and summarize without database access")
+    mode.add_argument("--diff", action="store_true", help="compare validated source records with PostgreSQL; no writes")
+    mode.add_argument("--load", action="store_true", help="validate, show the incremental diff, and update PostgreSQL")
     args = parser.parse_args()
 
-    documents, sections = prepare()
+    sources = load_sources()
+    documents, sections = prepare(sources)
     total_characters = sum(len(record["content"]) for record in sections)
-    print(f"Validated {len(documents)} CrPC PDFs ({sum(source.pages for source in SOURCES)} pages).")
+    indexed_laws = sorted({source.law_code for source in sources if source.role == "statutory_body"})
+    excluded = [source.filename for source in sources if source.role != "statutory_body"]
+    print(f"Validated {len(documents)} legal PDFs ({sum(source.pages for source in sources)} pages).")
     print(f"Prepared {len(sections)} section/range records ({total_characters:,} characters).")
-    print("Indexed: Part 2 and Part 3 statutory body (243 pages; layout-v2).")
-    print("Checks passed: source hashes, page labels, text conservation, continuations and table cells.")
-    print("Footnotes/headings stored separately by source page; per-section footnote links not certified.")
-    print("Excluded for now: Part 1 contents/index; Part 4 schedules/forms.")
+    print("Indexed laws: " + "; ".join(indexed_laws) + ".")
+    print("Checks passed: manifest, source hashes, page labels, text conservation and section boundaries.")
+    print("Footnotes/headings are stored separately by source page.")
+    if excluded:
+        print("Validated but excluded from indexing: " + ", ".join(excluded) + ".")
 
-    if args.load:
+    if args.diff or args.load:
         load_dotenv(ROOT / ".env")
         database_url = os.getenv("DATABASE_URL", "").strip()
-        require(database_url, "DATABASE_URL is required for --load")
-        load_database(database_url, documents, sections)
-        print(f"Loaded source_documents={len(documents)}, legal_sections={len(sections)}.")
-        print(f"Source version: {SOURCE_VERSION}")
+        require(database_url, "DATABASE_URL is required for --diff or --load")
+        stats = compare_database(database_url, documents, sections)
+        print_database_diff(stats)
+
+        if args.load:
+            load_database(database_url, documents, sections)
+            remaining = compare_database(database_url, documents, sections)
+            unresolved = sum(
+                len(remaining["documents"][name]) for name in ("added", "changed")
+            ) + sum(
+                len(remaining["sections"][name])
+                for name in ("added", "content_changed", "metadata_changed", "removed")
+            )
+            require(unresolved == 0, "Database still differs from the prepared corpus after --load")
+            print(f"Loaded source_documents={len(documents)}, legal_sections={len(sections)}.")
+            print("Incremental update complete; unchanged section rows and embeddings were preserved.")
+            versions = sorted({document["source_version"] for document in documents})
+            print("Source versions: " + ", ".join(versions))
+        else:
+            print("Diff only: no database data was written.")
     else:
         print("Check only: no file or database data was written.")
 

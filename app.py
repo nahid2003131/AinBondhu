@@ -89,6 +89,10 @@ ROUTING_SCHEMA = {
 }
 
 
+
+def active_source_version_label():
+    return ", ".join(rag.embed.active_source_versions())
+
 def generate_answer(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata=None, evidence=None, history=None):
     schema = ANSWER_SCHEMA
     if evidence is not None:
@@ -98,7 +102,7 @@ def generate_answer(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata
         question = json.dumps({
             "question": question,
             "conversation_history": rag.conversation_context(history),
-            "source_version": rag.embed.SOURCE_VERSION,
+            "source_version": active_source_version_label(),
             "archive_current_law_verified": False,
             "passages": evidence,
         })
@@ -119,7 +123,7 @@ def generate_answer(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata
         "status": result["status"],
         "answer": answer,
         "citations": citations,
-        "source_version": rag.embed.SOURCE_VERSION if evidence is not None else None,
+        "source_version": active_source_version_label() if evidence is not None else None,
         "error": None,
         "disclaimer": DISCLAIMER + (" Based on an archived edition; current amendments are not verified." if evidence is not None else ""),
     }
@@ -536,7 +540,7 @@ def answer_question(question, *, system_instruction=SYSTEM_INSTRUCTION, metadata
                 metadata["retrieved_sections"] = list(dict.fromkeys(p["section"] for p in evidence))
             if not evidence:
                 return {"status": "insufficient_evidence", "answer": "The available archive does not provide enough information to answer this question.",
-                        "citations": [], "source_version": rag.embed.SOURCE_VERSION, "error": None, "disclaimer": DISCLAIMER}, 200
+                        "citations": [], "source_version": active_source_version_label(), "error": None, "disclaimer": DISCLAIMER}, 200
         return generate_answer(
             question,
             system_instruction=system_instruction,

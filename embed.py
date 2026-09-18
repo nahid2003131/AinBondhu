@@ -1,8 +1,13 @@
-"""Create resumable section embeddings in the existing Railway PostgreSQL database.
+"""Create and search resumable embeddings for the active legal corpus.
 
-    .venv/bin/python embed.py --check
-    .venv/bin/python embed.py --load
-    .venv/bin/python embed.py --search "Can I get a copy of the police report?"
+The active statutory source versions come from documents/sources.json. Existing
+embeddings are reused when their content hash and embedding profile still match;
+only new or changed legal sections are embedded.
+
+Modes:
+    --check             Show reusable and pending embeddings without API calls or writes.
+    --load              Generate and store only missing or stale embeddings.
+    --search QUESTION   Run vector retrieval across all active statutory sources.
 """
 
 import argparse
@@ -18,8 +23,9 @@ import psycopg
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
 
-from ingest import SOURCE_VERSION
 
+ROOT = Path(__file__).resolve().parent
+SOURCE_MANIFEST = ROOT / "documents" / "sources.json"
 MODEL = "gemini-embedding-2"
 DIMENSIONS = 768
 PROFILE = f"{MODEL}:{DIMENSIONS}:document-v1"
@@ -30,6 +36,30 @@ PAUSE_SECONDS = 15
 
 class EmbeddingAPIError(RuntimeError):
     """Safe provider failure message, without credentials or raw response bodies."""
+
+
+def active_source_versions():
+    if not SOURCE_MANIFEST.is_file():
+        raise RuntimeError(f"Missing source manifest: {SOURCE_MANIFEST}")
+    try:
+        payload = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid JSON in {SOURCE_MANIFEST.name}: {exc}") from exc
+
+    sources = payload.get("sources")
+    if not isinstance(sources, list):
+        raise RuntimeError("sources.json must contain a 'sources' list.")
+
+    versions = sorted({
+        source.get("source_version")
+        for source in sources
+        if isinstance(source, dict)
+        and source.get("role") == "statutory_body"
+        and source.get("source_version")
+    })
+    if not versions:
+        raise RuntimeError("No active statutory source versions found in sources.json.")
+    return versions
 
 
 def document_text(row):
@@ -48,7 +78,6 @@ def api_post(client, method, payload):
 
 
 def make_vectors(client, texts):
-    # Synchronous standard endpoint; this is not Google's paid asynchronous Batch API.
     data = api_post(client, 'batchEmbedContents', {'requests': [
         {'model': f'models/{MODEL}', 'content': {'parts': [{'text': text}]},
          'outputDimensionality': DIMENSIONS} for text in texts
@@ -74,51 +103,78 @@ def ensure_schema(conn):
         conn.execute('ALTER TABLE legal_sections ADD COLUMN IF NOT EXISTS embedded_at TIMESTAMPTZ')
 
 
-def fetch_sections(conn):
-    rows = conn.execute('''SELECT source_version,section_ref,law_code,content,content_sha256
-                          FROM legal_sections WHERE source_version=%s ORDER BY section_ref''',
-                        (SOURCE_VERSION,)).fetchall()
+def fetch_sections(conn, versions):
+    rows = conn.execute(
+        '''SELECT source_version,section_ref,law_code,source_file,pdf_pages,printed_pages,
+                  content,content_sha256,fragments
+           FROM legal_sections
+           WHERE source_version = ANY(%s)
+           ORDER BY law_code, source_version, section_ref''',
+        (versions,),
+    ).fetchall()
     if not rows:
-        raise RuntimeError("No source records. Run ingest.py --load first.")
+        raise RuntimeError("No active source records. Run ingest.py --load first.")
     for row in rows:
         if hashlib.sha256(row['content'].encode()).hexdigest() != row['content_sha256']:
-            raise RuntimeError("Stored source checksum does not match its text.")
+            raise RuntimeError(
+                f"Stored source checksum does not match its text: "
+                f"{row['law_code']} section {row['section_ref']}."
+            )
     return rows
 
 
-def pending_sections(conn, rows):
-    exists = conn.execute('''SELECT 1 FROM information_schema.columns
-                            WHERE table_schema=current_schema() AND table_name='legal_sections'
-                            AND column_name='embedding' ''').fetchone()
+def pending_sections(conn, rows, versions):
+    exists = conn.execute(
+        '''SELECT 1 FROM information_schema.columns
+           WHERE table_schema=current_schema() AND table_name='legal_sections'
+           AND column_name='embedding' '''
+    ).fetchone()
     if not exists:
         return rows
-    ready = conn.execute('''SELECT section_ref FROM legal_sections
-                           WHERE source_version=%s AND embedding IS NOT NULL
-                           AND embedding_profile=%s AND embedding_content_sha256=content_sha256''',
-                         (SOURCE_VERSION, PROFILE)).fetchall()
-    ready = {row['section_ref'] for row in ready}
-    return [row for row in rows if row['section_ref'] not in ready]
+
+    ready_rows = conn.execute(
+        '''SELECT source_version,section_ref FROM legal_sections
+           WHERE source_version = ANY(%s) AND embedding IS NOT NULL
+           AND embedding_profile=%s AND embedding_content_sha256=content_sha256''',
+        (versions, PROFILE),
+    ).fetchall()
+    ready = {(row['source_version'], row['section_ref']) for row in ready_rows}
+    return [row for row in rows if (row['source_version'], row['section_ref']) not in ready]
 
 
 def check_lengths(client, rows):
-    # A byte ceiling is deliberately conservative for these English source texts.
-    # Longer inputs are counted by the actual embedding model, never silently cut.
     for row in rows:
         text = document_text(row)
         if len(text.encode('utf-8')) > 7600:
-            count = api_post(client, 'countTokens', {'contents': [{'parts': [{'text': text}]}]}).get('totalTokens')
+            count = api_post(
+                client,
+                'countTokens',
+                {'contents': [{'parts': [{'text': text}]}]},
+            ).get('totalTokens')
             if type(count) is not int or count > 8192:
-                raise RuntimeError(f"Section {row['section_ref']} exceeds model input limit; split it before embedding.")
-            print(f"Long section {row['section_ref']}: {count}/8192 input tokens.", flush=True)
+                raise RuntimeError(
+                    f"{row['law_code']} section {row['section_ref']} exceeds the model input limit; "
+                    "split it before embedding."
+                )
+            print(
+                f"Long section: {row['law_code']} {row['section_ref']} ({count}/8192 input tokens).",
+                flush=True,
+            )
 
 
-def load_embeddings(conn, client, rows, pause=PAUSE_SECONDS):
-    pending = pending_sections(conn, rows)
-    print(f"Sections: {len(rows)}; already embedded: {len(rows)-len(pending)}; pending: {len(pending)}.", flush=True)
+def load_embeddings(conn, client, rows, versions, pause=PAUSE_SECONDS):
+    pending = pending_sections(conn, rows, versions)
+    print(
+        f"Sections: {len(rows)}; reusable embeddings: {len(rows)-len(pending)}; "
+        f"embeddings to generate: {len(pending)}.",
+        flush=True,
+    )
     if not pending:
         return
+
     check_lengths(client, pending)
     ensure_schema(conn)
+
     for start in range(0, len(pending), BATCH_SIZE):
         if start:
             time.sleep(pause)
@@ -126,34 +182,46 @@ def load_embeddings(conn, client, rows, pause=PAUSE_SECONDS):
         vectors = make_vectors(client, [document_text(row) for row in batch])
         with conn.transaction():
             for row, vector in zip(batch, vectors):
-                updated = conn.execute('''UPDATE legal_sections
-                    SET embedding=%s::vector, embedding_profile=%s,
-                        embedding_content_sha256=%s, embedded_at=now()
-                    WHERE source_version=%s AND section_ref=%s AND content_sha256=%s''',
-                    (json.dumps(vector), PROFILE, row['content_sha256'], row['source_version'],
-                     row['section_ref'], row['content_sha256']))
+                updated = conn.execute(
+                    '''UPDATE legal_sections
+                       SET embedding=%s::vector, embedding_profile=%s,
+                           embedding_content_sha256=%s, embedded_at=now()
+                       WHERE source_version=%s AND section_ref=%s AND content_sha256=%s''',
+                    (
+                        json.dumps(vector), PROFILE, row['content_sha256'],
+                        row['source_version'], row['section_ref'], row['content_sha256'],
+                    ),
+                )
                 if updated.rowcount != 1:
                     raise RuntimeError("Source changed during embedding; rerun against the current source.")
-        print(f"Saved {min(start+BATCH_SIZE,len(pending))}/{len(pending)} pending embeddings.", flush=True)
-    if pending_sections(conn, fetch_sections(conn)):
-        raise RuntimeError("Some source rows still need embeddings.")
-    print(f"Complete: {len(rows)} section embeddings stored in Railway PostgreSQL.", flush=True)
+        print(f"Saved {min(start+BATCH_SIZE, len(pending))}/{len(pending)} pending embeddings.", flush=True)
+
+    refreshed_rows = fetch_sections(conn, versions)
+    if pending_sections(conn, refreshed_rows, versions):
+        raise RuntimeError("Some active source rows still need embeddings.")
+    print(f"Complete: {len(refreshed_rows)} active section embeddings stored in PostgreSQL.", flush=True)
 
 
 def search(conn, client, question, limit=5):
     if not question.strip() or len(question) > 4000:
         raise ValueError("Question must be between 1 and 4000 characters.")
-    rows = fetch_sections(conn)
-    if pending_sections(conn, rows):
-        raise RuntimeError("Corpus embeddings are incomplete. Finish --load before searching.")
+
+    versions = active_source_versions()
+    rows = fetch_sections(conn, versions)
+    if pending_sections(conn, rows, versions):
+        raise RuntimeError("Corpus embeddings are incomplete. Finish embed.py --load before searching.")
+
     vector = make_vectors(client, [f"task: question answering | query: {question.strip()}"])[0]
-    # Exact cosine search is sufficient for 515 vectors. Similarity is not accuracy.
-    return conn.execute('''SELECT section_ref,source_file,pdf_pages,printed_pages,content,fragments,
-                           1-(embedding <=> %s::vector) AS similarity
-                           FROM legal_sections WHERE source_version=%s AND embedding_profile=%s
-                           AND embedding_content_sha256=content_sha256 AND embedding IS NOT NULL
-                           ORDER BY embedding <=> %s::vector,section_ref LIMIT %s''',
-                        (json.dumps(vector), SOURCE_VERSION, PROFILE, json.dumps(vector), limit)).fetchall()
+    return conn.execute(
+        '''SELECT source_version,law_code,section_ref,source_file,pdf_pages,printed_pages,
+                  content,fragments,1-(embedding <=> %s::vector) AS similarity
+           FROM legal_sections
+           WHERE source_version = ANY(%s) AND embedding_profile=%s
+             AND embedding_content_sha256=content_sha256 AND embedding IS NOT NULL
+           ORDER BY embedding <=> %s::vector, law_code, section_ref
+           LIMIT %s''',
+        (json.dumps(vector), versions, PROFILE, json.dumps(vector), limit),
+    ).fetchall()
 
 
 def main():
@@ -163,27 +231,44 @@ def main():
     mode.add_argument('--load', action='store_true')
     mode.add_argument('--search', metavar='QUESTION')
     args = parser.parse_args()
-    load_dotenv(Path(__file__).with_name('.env'))
+
+    load_dotenv(ROOT / '.env')
     url = os.getenv('DATABASE_URL', '').strip()
     key = os.getenv('GEMINI_API_KEY', '').strip()
     if not url:
         raise RuntimeError("Set DATABASE_URL in .env.")
     if not args.check and not key:
         raise RuntimeError("Set GEMINI_API_KEY in .env.")
-    with psycopg.connect(url, connect_timeout=15, autocommit=True, row_factory=dict_row,
-                         options='-c statement_timeout=60000') as conn:
-        rows = fetch_sections(conn)
+
+    versions = active_source_versions()
+    with psycopg.connect(
+        url,
+        connect_timeout=15,
+        autocommit=True,
+        row_factory=dict_row,
+        options='-c statement_timeout=60000',
+    ) as conn:
+        rows = fetch_sections(conn, versions)
         if args.check:
-            pending = pending_sections(conn, rows)
-            print(f"Sections: {len(rows)}; embedded: {len(rows)-len(pending)}; pending: {len(pending)}.")
+            pending = pending_sections(conn, rows, versions)
+            print(
+                f"Sections: {len(rows)}; reusable embeddings: {len(rows)-len(pending)}; "
+                f"embeddings to generate: {len(pending)}."
+            )
+            print("Active source versions: " + ", ".join(versions))
             print(f"Model: {MODEL}; dimensions: {DIMENSIONS}. No API calls or database writes.")
             return
+
         with httpx.Client(headers={'x-goog-api-key': key}, timeout=45) as client:
             if args.load:
-                load_embeddings(conn, client, rows)
+                load_embeddings(conn, client, rows, versions)
             else:
                 for row in search(conn, client, args.search):
-                    print(f"Section {row['section_ref']} | {row['source_file']} | PDF {row['pdf_pages']} | similarity {row['similarity']:.4f}")
+                    print(
+                        f"{row['law_code']} | Section {row['section_ref']} | "
+                        f"{row['source_file']} | PDF {row['pdf_pages']} | "
+                        f"similarity {row['similarity']:.4f}"
+                    )
 
 
 if __name__ == '__main__':

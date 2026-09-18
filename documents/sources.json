@@ -1,0 +1,85 @@
+{
+  "sources": [
+    {
+      "filename": "crpc-1898-part-1.pdf",
+      "sha256": "d343152757946aec345a81c6c92c254338e4066f0acd205b8b8574555914218c",
+      "pages": 38,
+      "printed_page_offset": 0,
+      "role": "contents_index",
+      "source_version": "crpc-old-bdlaws-archive-2026-09-17-v1",
+      "law_code": "Code of Criminal Procedure, 1898",
+      "parser_profile": "none"
+    },
+    {
+      "filename": "crpc-1898-part-2.pdf",
+      "sha256": "691ae36aa388b46396c7c51e344beb2b162c31d9c36ededa8c34c70467bc8ff0",
+      "pages": 123,
+      "printed_page_offset": 38,
+      "role": "statutory_body",
+      "source_version": "crpc-old-bdlaws-archive-2026-09-17-v1",
+      "law_code": "Code of Criminal Procedure, 1898",
+      "body_pdf_start": 1,
+      "section_min": 1,
+      "section_max": 220,
+      "parser_profile": "crpc",
+      "validation_profile": "crpc",
+      "expected_section_count": 230,
+      "required_sections": ["1", "2", "126A", "173", "205D", "206-220"]
+    },
+    {
+      "filename": "crpc-1898-part-3.pdf",
+      "sha256": "f13e13b04fb4bd9f7fc13a77897d2572a0373d9f84d78f527af5bbecfa6bb1f8",
+      "pages": 120,
+      "printed_page_offset": 161,
+      "role": "statutory_body",
+      "source_version": "crpc-old-bdlaws-archive-2026-09-17-v1",
+      "law_code": "Code of Criminal Procedure, 1898",
+      "body_pdf_start": 1,
+      "section_min": 221,
+      "section_max": 565,
+      "parser_profile": "crpc",
+      "validation_profile": "crpc",
+      "expected_section_count": 285,
+      "required_sections": ["221", "251-259", "266-336", "488-490", "565"]
+    },
+    {
+      "filename": "crpc-1898-part-4.pdf",
+      "sha256": "71902dd0f7746298e3c950a2fb407d675f4a1adbf84ecc8bc8b541692972b627",
+      "pages": 160,
+      "printed_page_offset": 281,
+      "role": "schedules_forms",
+      "source_version": "crpc-old-bdlaws-archive-2026-09-17-v1",
+      "law_code": "Code of Criminal Procedure, 1898",
+      "parser_profile": "none"
+    },
+    {
+      "filename": "evidence-act-1872.pdf",
+      "sha256": "66d33bdfbf99ef2d396f8e9a8a58ccce230e2f5b32350b787276784ccc233d59",
+      "pages": 92,
+      "printed_page_offset": 0,
+      "role": "statutory_body",
+      "source_version": "evidence-act-old-bdlaws-2023-12-03-v1",
+      "law_code": "Evidence Act, 1872",
+      "body_pdf_start": 11,
+      "section_min": 1,
+      "section_max": 167,
+      "parser_profile": "standard_statute",
+      "expected_section_count": 182,
+      "required_sections": ["1", "22A", "45A", "65A", "65B", "73B", "85C", "90A", "167"],
+      "layout": {
+        "header_bottom": 145,
+        "odd_body_left": 120,
+        "odd_body_right": 405,
+        "even_body_left": 190,
+        "even_body_right": 480,
+        "footnote_detector": "rect",
+        "footnote_x0": 122.64,
+        "footnote_x0_tolerance": 2,
+        "footnote_width_min": 135,
+        "footnote_width_max": 145,
+        "footnote_min_top": 500,
+        "default_foot_top": 800
+      }
+    }
+  ]
+}
