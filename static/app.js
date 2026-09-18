@@ -941,13 +941,11 @@ document.querySelectorAll("dialog").forEach((dialog) => {
 async function initialize() {
   clientId();
   byId("result").hidden = true;
-  await loadConversations();
 
-  if (activeConversationId) {
-    await loadConversation(activeConversationId);
-  } else {
-    showHome();
-  }
+  // Keep saved conversations listed, but always open the app on a fresh question.
+  // Previous chats can still be opened manually from RECENT.
+  await loadConversations();
+  showHome();
 }
 
 initialize();
