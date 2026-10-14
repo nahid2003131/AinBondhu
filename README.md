@@ -1,4 +1,4 @@
-# Bangladesh Criminal-Law Q&A Assistant
+# AinBondhu : Bangladesh Criminal-Law Q&A Assistant
 
 A source-grounded legal-information assistant for Bangladesh criminal procedure.
 
