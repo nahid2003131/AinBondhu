@@ -14,7 +14,7 @@ The project focuses on:
 > The indexed corpus is archival and is not certified as the complete current law of Bangladesh.
 
 **Repository:** [GitHub](https://github.com/nahid2003131/ml-engineer-entry-assessment)  
-**Live app:** [Railway deployment](https://ml-engineer-entry-assessment-production.up.railway.app)
+**Live app:** [Railway deployment](https://ainbondhu.up.railway.app)
 
 ---
 
